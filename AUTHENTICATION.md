@@ -42,7 +42,35 @@ Note this is **not** a separate "verify your email" step followed by a separate 
 
 The NestJS API returns tokens in the **JSON response body**, never as a `Set-Cookie` header — this keeps the API itself transport-agnostic, which matters because the Android app (Phase 6) will consume the exact same endpoints but store tokens in secure device storage instead of a cookie.
 
-The Next.js app is the one place that turns those tokens into cookies: its Route Handlers under `app/api/auth/*` call the NestJS API server-to-server, then set the returned tokens as `httpOnly`, `Secure` (in production), `SameSite=Lax` cookies on the **Next.js origin**. Client-side JavaScript in the browser never touches a raw token — this is what removes XSS token theft as an attack vector, which is the reason this pattern was chosen over `localStorage`. Because the browser only ever talks to the Next.js origin, `SameSite=Lax` plus same-origin Route Handlers cover CSRF for state-changing requests, and the NestJS API's CORS policy is a strict allowlist of just the Next.js origin (`CORS_ORIGINS`) — the browser never calls the API directly.
+The Next.js app is the one place that turns those tokens into cookies: its Route Handlers under `app/api/auth/*` call the NestJS API server-to-server, then set the returned tokens as `httpOnly`, `Secure` (in production), `SameSite=Lax` cookies on the **Next.js origin**. Client-side JavaScript in the browser never touches a raw token — this is what removes XSS token theft as an attack vector, which is the reason this pattern was chosen over `localStorage`. Because the browser only ever talks to the Next.js origin, `SameSite=Lax` plus same-origin Route Handlers cover CSRF for state-changing requests, and the NestJS API's CORS policy is a strict allowlist of just the Next.js origin (`CORS_ORIGINS`) — the browser never calls the API directly for REST. See the next section for the one deliberate exception.
+
+### WebSocket authentication (Phase 5)
+
+The chat gateway (`apps/api/src/websocket/`, see [CHAT.md](./CHAT.md)) is the one place the browser **does** connect to the NestJS API directly, bypassing the Next.js BFF — a persistent Socket.IO connection can't be proxied through Vercel's serverless functions (see [VERCEL.md](./VERCEL.md)), so there's no BFF hop available for it the way there is for every REST call.
+
+That's a problem for the httpOnly-cookie model above: the browser genuinely has no raw access token to present to a server it's talking to directly. The fix is a **single-use, 30-second-lived connection ticket**, not the JWT itself:
+
+```
+Browser                    Next.js BFF                 NestJS API
+   |  POST /api/chat/ws-ticket    |                          |
+   |------------------------------>|  POST /auth/ws-ticket    |
+   |                               |  (Authorization: Bearer  |
+   |                               |   <httpOnly cookie's      |
+   |                               |   access token>)          |
+   |                               |------------------------->|
+   |                               |   {ticket, expiresIn: 30} |
+   |                               |<-------------------------|
+   |   {ticket}                    |                          |
+   |<------------------------------|                          |
+   |                                                           |
+   |  io(apiOrigin, {auth: {ticket}})                          |
+   |----------------------------------------------------------->|
+   |  ChatGateway verifies + deletes the ticket (single use),   |
+   |  resolves it to {userId, organizationId, roles}            |
+   |<-----------------------------------------------------------|
+```
+
+The ticket is opaque (`generateOpaqueToken()`, the same helper backing refresh tokens), stored server-side in Redis with a 30-second TTL, and consumed atomically (`GETDEL`) the moment the gateway verifies it — a second connection attempt with the same ticket fails, exactly like presenting an already-used refresh token would. The browser never sees or stores the real JWT; a stolen ticket is worthless within seconds and only useful once. Every reconnect (page reload, network blip) fetches a fresh ticket — there's no long-lived WebSocket credential anywhere on the client. The gateway's CORS is the same strict `CORS_ORIGINS` allowlist as REST (`apps/api/src/main.ts`'s `SocketIoAdapter`), so this exception is scoped to the trusted Next.js origin, never opened to the internet.
 
 ### Silent refresh happens in `middleware.ts`, not in a Server Component
 

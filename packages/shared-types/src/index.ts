@@ -10,5 +10,7 @@ export * from "./nav";
 export * from "./task";
 export * from "./file";
 export * from "./notification";
+export * from "./notification-preference";
 export * from "./event";
 export * from "./reminder";
+export * from "./chat";

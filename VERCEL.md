@@ -12,7 +12,7 @@
   - Build Command: `pnpm --filter @arutech/web build` (or default, if Root Directory + monorepo detection is enough)
 - Environment variables, set separately per Vercel environment (Development/Preview/Production), never shared as one value:
   - `API_INTERNAL_URL` — the backend's REST base URL as reachable from Vercel's servers (production: `https://api.arutechconsultancy.com/api/v1`)
-  - `NEXT_PUBLIC_API_URL` — same value, exposed to the client bundle only where actually needed (currently unused directly by client code; the BFF pattern in `apps/web/src/lib/api-client.ts` means almost all API calls happen server-side)
+  - `NEXT_PUBLIC_API_URL` — same value, exposed to the client bundle only where actually needed. As of Phase 5, one real client-side consumer: `lib/socket.ts` derives the chat WebSocket's origin from it (`new URL(...).origin`) — the one deliberate case where the browser talks to the API directly instead of through the BFF, since a persistent Socket.IO connection can't be proxied through Vercel's serverless functions (see AUTHENTICATION.md's "WebSocket authentication"). Every REST call still goes through the BFF pattern in `apps/web/src/lib/api-client.ts` server-side.
   - `NEXT_PUBLIC_APP_NAME`
 - `NODE_ENV=production` is set automatically by Vercel for Production deployments — the app's cookie `Secure` flag (`apps/web/src/lib/session-cookies.ts`) and CORS expectations depend on this being accurate.
 

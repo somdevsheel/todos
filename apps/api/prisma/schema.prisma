@@ -654,6 +654,11 @@ model Message {
   conversationId String
   senderUserId   String
   body           String
+  // Explicit picker-selected @mentions (user ids), never parsed from free
+  // text — same field/rationale as TaskComment.mentionedUserIds (see its
+  // comment). Added in Phase 5 (migration `message_mentions`); the
+  // Conversation/Message models otherwise predate this pattern.
+  mentionedUserIds String[] @default([])
   editedAt       DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt

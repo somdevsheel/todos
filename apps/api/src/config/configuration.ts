@@ -67,6 +67,13 @@ export interface StorageConfig {
   allowedMimeTypes: string[];
 }
 
+export interface FcmConfig {
+  /** Any of these being empty means FcmService runs disabled — see its docstring. Never optional in production (env.schema.ts). */
+  projectId: string;
+  clientEmail: string;
+  privateKey: string;
+}
+
 export default (env: EnvConfig) => ({
   app: {
     nodeEnv: env.NODE_ENV,
@@ -115,4 +122,9 @@ export default (env: EnvConfig) => ({
     maxUploadSizeBytes: env.MAX_UPLOAD_SIZE_MB * 1024 * 1024,
     allowedMimeTypes: env.ALLOWED_UPLOAD_MIME_TYPES,
   } satisfies StorageConfig,
+  fcm: {
+    projectId: env.FCM_PROJECT_ID ?? "",
+    clientEmail: env.FCM_CLIENT_EMAIL ?? "",
+    privateKey: env.FCM_PRIVATE_KEY ?? "",
+  } satisfies FcmConfig,
 });

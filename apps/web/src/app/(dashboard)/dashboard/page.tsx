@@ -1,11 +1,10 @@
 import { Suspense } from "react";
-import { MessageCircle } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { hasAnyRole } from "@/lib/rbac";
-import { StatCard } from "@/components/dashboard/StatCard";
 import { NotificationCountWidget } from "@/components/dashboard/NotificationCountWidget";
 import { TaskStatsWidgets } from "@/components/dashboard/TaskStatsWidgets";
 import { UpcomingEventsStatCard, UpcomingEventsCard } from "@/components/dashboard/EventWidgets";
+import { UnreadMessagesWidget } from "@/components/dashboard/UnreadMessagesWidget";
 import { EmployeeCountWidget, DepartmentCountWidget, TeamCountWidget } from "@/components/dashboard/OrgStatsWidgets";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -40,7 +39,9 @@ export default async function DashboardPage() {
           <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
             <UpcomingEventsStatCard />
           </Suspense>
-          <StatCard icon={MessageCircle} label="Unread messages" value={0} comingSoon hint="Coming in Phase 5" />
+          <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
+            <UnreadMessagesWidget />
+          </Suspense>
           <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
             <NotificationCountWidget />
           </Suspense>
@@ -69,7 +70,7 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Recent activity</CardTitle>
           </CardHeader>
-          <EmptyState title="No activity yet" description="The company activity feed arrives with tasks, events, and chat in later phases." />
+          <EmptyState title="No activity yet" description="A unified company activity feed is a later-phase concern — see ARCHITECTURE.md." />
         </Card>
         <Card>
           <CardHeader>

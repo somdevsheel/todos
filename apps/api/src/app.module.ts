@@ -28,11 +28,16 @@ import { TasksModule } from "./tasks/tasks.module";
 import { TaskCommentsModule } from "./task-comments/task-comments.module";
 import { EventsModule } from "./events/events.module";
 import { RemindersModule } from "./reminders/reminders.module";
+import { RedisModule } from "./redis/redis.module";
+import { ConversationsModule } from "./conversations/conversations.module";
+import { MessagesModule } from "./messages/messages.module";
+import { WebsocketModule } from "./websocket/websocket.module";
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
+    RedisModule,
     // Powers ReminderSchedulerService's @Cron — see reminders/reminder-scheduler.service.ts.
     ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
@@ -58,8 +63,9 @@ import { RemindersModule } from "./reminders/reminders.module";
     TaskCommentsModule,
     EventsModule,
     RemindersModule,
-    // NOTE: chat still lives under src/modules-future and is deliberately
-    // NOT imported here — see modules-future/chat/README.md.
+    ConversationsModule,
+    MessagesModule,
+    WebsocketModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }) },

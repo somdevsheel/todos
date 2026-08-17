@@ -1,15 +1,16 @@
 # Notifications
 
-**Status: the notification center is fully real, both read and write sides, now including a real BullMQ-backed reminder worker (Phase 3). FCM push delivery is still not built.**
+**Status: the notification center is fully real (read + write), with a real BullMQ-backed reminder worker (Phase 3), real FCM push fan-out + user-editable preferences (Phase 4 — code done, no live Firebase project yet, see FCM.md), and real chat notifications with online/push dedup (Phase 5).**
 
 ## What exists today
 
 - `Notification` table (`organizationId, userId, type, title, body, data, isRead, readAt`) with real endpoints: `GET /notifications` (paginated), `GET /notifications/unread-count`, `PATCH /notifications/:id/read`, `PATCH /notifications/read-all`.
-- `NotificationsService.create()`/`createMany()` (added in Phase 2) — the write side. Producers: `apps/api/src/tasks/tasks.service.ts`, `apps/api/src/task-comments/task-comments.service.ts`, `apps/api/src/events/events.service.ts`, and `apps/api/src/reminders/reminder.processor.ts` (Phase 3). Never throws — a failed notification write is logged, not allowed to fail the business operation that triggered it (same philosophy as `AuditService.log()`).
+- `NotificationsService.create()`/`createMany()` (added in Phase 2) — the write side. Producers: `apps/api/src/tasks/tasks.service.ts`, `apps/api/src/task-comments/task-comments.service.ts`, `apps/api/src/events/events.service.ts`, `apps/api/src/reminders/reminder.processor.ts` (Phase 3), and `apps/api/src/messages/messages.service.ts` (Phase 5). Never throws — a failed notification write is logged, not allowed to fail the business operation that triggered it (same philosophy as `AuditService.log()`).
 - Real notification types in production use today (`packages/shared-types/src/notification.ts`'s `NOTIFICATION_TYPES`): `TASK_ASSIGNED` (assignment — never sent to the actor who did the assigning), `TASK_COMMENTED` (sent to the task's creator + assignees, excluding the comment's own author), `TASK_MENTIONED` (sent to explicitly `mentionedUserIds` instead of the generic `TASK_COMMENTED` — a mentioned participant gets the more specific one, not both), `TASK_COMPLETED` (sent to the creator when someone *else* completes their task).
 - Phase 3 adds: `EVENT_CREATED` (an invite — sent on event creation and on `addParticipant`, same reuse pattern as `TASK_ASSIGNED`), `EVENT_UPDATED` (any edit, sent to every other participant — unlike `TasksService.update`, which doesn't notify on a plain edit, every invitee genuinely needs to know a meeting's time/place changed), `EVENT_CANCELLED` (event deleted), and `EVENT_REMINDER`/`TASK_DUE_SOON`/`TASK_OVERDUE` — all three produced by the same mechanism, a fired `Reminder` row (see "The reminder worker" below).
+- Phase 5 adds: `NEW_MESSAGE`/`MESSAGE_MENTION` — see "Chat notifications and the online/push dedup rule" below.
 - A working notification center UI at `/notifications` in the web app (mark one/all as read, unread badge on the dashboard) — verified receiving real rows from real task activity, not just Phase 1's empty-state screenshot.
-- `NotificationPreference` table exists (`userId, channel, category, enabled`) but has no API yet — the Settings page shows a "coming soon" note where per-category toggles will live.
+- `NotificationPreference` is real since Phase 4: `GET`/`PATCH /notifications/preferences`, a Settings-page UI (`NotificationPreferencesForm`), now covering four categories (`tasks`/`reminders`/`events`/`chat`). See "Preference enforcement scope" below for exactly what these toggles do and don't gate.
 
 ## The pipeline, as actually built
 
@@ -20,15 +21,32 @@ Business Event (task assigned, @mentioned in a comment, task completed,
       v
 NotificationsService.create()/createMany()   — writes to Postgres, never throws
       |
-      v
-Notification center (GET /notifications, PATCH .../read) — already consuming real rows
+      +---> Notification center (GET /notifications, PATCH .../read) — always, unconditionally
       |
-      +---> WebSocket push if the user is online (Phase 5 — not built)
+      +---> FcmService.sendToUser() (Phase 4) — only if the PUSH preference for that
+      |     category is enabled, and only if FCM is actually configured (see FCM.md);
+      |     a no-op in every environment this code has run in so far
       |
-      +---> FCM push if appropriate (Phase 4 — not built) — will respect NotificationPreference
+      |
+      +---> Live over the chat WebSocket, for a message specifically, if the
+            recipient is focused on that exact conversation right now — see
+            "Chat notifications and the online/push dedup rule" below. For
+            every OTHER notification type, being online has no effect on
+            whether a Notification row/push happens; there's no general
+            "was the user active in the app" dedup, only the chat-specific one.
 ```
 
 PostgreSQL is the notification database — FCM is a delivery channel, never the source of truth. Phase 1 built the read/mark-read API and UI ahead of any producer specifically so this pipeline's two ends (producer, consumer) could be verified independently; Phase 2 proved the join works end-to-end (verified via `apps/api/test/tasks.e2e-spec.ts` and manually: assigning a task produces a real row the assignee's notification center shows).
+
+## Preference enforcement scope (Phase 4)
+
+`NotificationPreference` has three channels in the schema (`EMAIL`/`PUSH`/`IN_APP`) but only **PUSH** is actually checked by any code path today:
+
+- **IN_APP always writes**, unconditionally — the notification center losing a user's own history because of a stray toggle would be worse than the toggle doing nothing, so it was never wired to gate the DB write at all.
+- **EMAIL has no producer** — nothing in this codebase sends an email for a business event (`TASK_ASSIGNED`, `EVENT_CREATED`, etc.); the only email sent anywhere is the auth flow's invitation/password-reset mail via `MailerService`, which is unrelated to `NOTIFICATION_TYPES`/`NotificationPreference` entirely.
+- **PUSH** is gated by `NotificationsService.isPushEnabled()`, checked per-recipient before every `FcmService.sendToUser()` call, defaulting to enabled when no preference row exists.
+
+The Settings UI reflects this honestly: it only exposes PUSH toggles, not three columns of which two would be dead controls.
 
 ## The reminder worker (Phase 3)
 
@@ -36,6 +54,10 @@ PostgreSQL is the notification database — FCM is a delivery channel, never the
 
 Remaining reserved type (`EVENT_STARTING` — a "starting now" ping distinct from a user-set reminder) is documented as a comment in `NOTIFICATION_TYPES` so the naming doesn't have to be re-decided later; it isn't built.
 
-Duplicate-notification avoidance for chat specifically (don't push a message to someone actively viewing that conversation) is a Phase 5 concern — see [CHAT.md](./CHAT.md). Task notifications don't have an equivalent "actively viewing" concept to dedupe against yet.
+## Chat notifications and the online/push dedup rule (Phase 5)
 
-See [FCM.md](./FCM.md) for the push-delivery side specifically, and [ARCHITECTURE.md](./ARCHITECTURE.md) for phasing.
+`MessagesService.create()` (`apps/api/src/messages/messages.service.ts`) is the one producer with a dedup rule beyond preference-gating: for every conversation member except the sender, it asks `PresenceService.isFocused(userId, conversationId)` (in-process WebSocket presence state — see CHAT.md). A focused member — their chat UI has that exact conversation open right now — gets **no** `Notification` row at all; the `message:new` WebSocket event they're already receiving live is treated as sufficient in-app delivery, and their `lastReadAt` is bumped in the same call so their unread count doesn't drift upward while they're watching it stream in. Everyone else goes through the normal pipeline: `NEW_MESSAGE`, or `MESSAGE_MENTION` for anyone in the message's explicit `mentionedUserIds` (same "picker, not text-parsing" mention model as `TaskComment`).
+
+No other notification type has an equivalent "actively viewing" concept to dedupe against — a task or event notification always produces a row/push regardless of whether the recipient happens to have that task open in another tab.
+
+See [FCM.md](./FCM.md) for the push-delivery side specifically, [CHAT.md](./CHAT.md) for the WebSocket gateway this dedup rule depends on, and [ARCHITECTURE.md](./ARCHITECTURE.md) for phasing.

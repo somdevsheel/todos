@@ -4,6 +4,7 @@ import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
+import { SocketIoAdapter } from "./websocket/socket-io.adapter";
 import type { AppConfig, CorsConfig } from "./config/configuration";
 
 async function bootstrap(): Promise<void> {
@@ -14,13 +15,18 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
   app.enableCors({
-    // The browser never calls this API directly — only the Next.js BFF
-    // does, server-to-server (see AUTHENTICATION.md) — so this is
-    // deliberately a strict allowlist, not a wildcard.
+    // Every REST call still goes exclusively through the Next.js BFF,
+    // server-to-server (see AUTHENTICATION.md) — this allowlist covers
+    // that. The one deliberate exception is the WebSocket gateway
+    // (ChatGateway), which the browser connects to directly — Vercel can't
+    // proxy a persistent connection — using the same trusted origin below,
+    // never the real JWT (see AUTHENTICATION.md's "WebSocket
+    // authentication" section for how that stays safe).
     origin: corsConfig.origins,
     credentials: false,
   });
   app.setGlobalPrefix(appConfig.globalPrefix);
+  app.useWebSocketAdapter(new SocketIoAdapter(app, corsConfig.origins));
   app.enableShutdownHooks();
 
   await app.listen(appConfig.port);

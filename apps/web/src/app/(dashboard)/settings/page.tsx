@@ -1,9 +1,14 @@
+import type { NotificationPreferenceItem } from "@arutech/shared-types";
+import { apiFetch, getAccessTokenFromCookies } from "@/lib/api-client";
 import { requireAuth } from "@/lib/auth";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { ProfileForm } from "@/components/settings/ProfileForm";
+import { NotificationPreferencesForm } from "@/components/settings/NotificationPreferencesForm";
 
 export default async function SettingsPage() {
   const user = await requireAuth();
+  const accessToken = await getAccessTokenFromCookies();
+  const preferences = await apiFetch<NotificationPreferenceItem[]>("/notifications/preferences", { accessToken });
 
   return (
     <div className="flex flex-col gap-4">
@@ -23,10 +28,7 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Notification preferences</CardTitle>
         </CardHeader>
-        <p className="text-sm text-[var(--color-ink-muted)]">
-          Per-category notification toggles (task assigned, event reminders, mentions, etc.) arrive alongside the FCM
-          integration — see NOTIFICATIONS.md.
-        </p>
+        <NotificationPreferencesForm preferences={preferences} />
       </Card>
     </div>
   );

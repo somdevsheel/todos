@@ -110,6 +110,16 @@ export const envSchema = z
         message: "SMTP_HOST must point at a real mail provider in production, not the dev MailHog catcher",
       });
     }
+    // Phase 4 — push notifications are optional in dev (FcmService degrades
+    // to a logged no-op with no credentials, see FCM.md) but required once
+    // this actually ships, same treatment as the JWT secrets above.
+    if (!env.FCM_PROJECT_ID || !env.FCM_CLIENT_EMAIL || !env.FCM_PRIVATE_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["FCM_PROJECT_ID"],
+        message: "FCM_PROJECT_ID, FCM_CLIENT_EMAIL, and FCM_PRIVATE_KEY are all required in production",
+      });
+    }
   });
 
 export type EnvConfig = z.infer<typeof envSchema>;

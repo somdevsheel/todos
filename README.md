@@ -2,7 +2,7 @@
 
 Internal collaboration platform for **Arutech Consultancy Services LLP** — company-only authentication, RBAC, task management, calendar, real-time chat, and push-notification-driven workflows, built as the foundation for a future multi-tenant SaaS product.
 
-**This repository currently implements Phases 1–3 (Foundation + Tasks + Calendar)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. All three phases are real and fully working end-to-end locally — not a prototype — but Chat, FCM push, and production deployment are intentionally not built yet; each has a short honest doc stub explaining what's coming.
+**This repository currently implements Phases 1–5 (Foundation + Tasks + Calendar + FCM + Chat)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. All five phases are real and fully working end-to-end locally — not a prototype — with one caveat: Phase 4's push-delivery *code* is done and tested, but no real Firebase project exists to send a live push through yet (see [FCM.md](./FCM.md) — that step requires a human with account access). Production deployment is the only piece intentionally not built yet.
 
 ## What's built
 
@@ -10,17 +10,18 @@ Internal collaboration platform for **Arutech Consultancy Services LLP** — com
 - RBAC (SUPER_ADMIN / ADMIN / MANAGER / EMPLOYEE), organizations, departments, teams
 - Full task management: CRUD, assignment (with authorization rules), status/priority, comments with explicit @mentions, subtasks, file attachments (provider-abstracted storage, local-disk today) — list and Kanban views
 - Full calendar: event CRUD, RSVP, month/week/day/agenda views, a "my calendar" default scope with an optional team-calendar mode, and a real BullMQ reminder worker (running in-process — see ARCHITECTURE.md's Phase 8 note) that turns a user-set reminder into a `TASK_DUE_SOON`/`TASK_OVERDUE`/`EVENT_REMINDER` notification, idempotently
-- Real notifications: task assignment/comments/mentions/completion, event invites/updates/cancellations, and fired reminders all produce real rows in the notification center, not just placeholders
+- Real-time chat: direct + group conversations, an authenticated Socket.IO gateway (ticket-based auth that keeps the real session JWT httpOnly — see [AUTHENTICATION.md](./AUTHENTICATION.md)), typing indicators, presence, read receipts, and @mentions, with an online/push notification-dedup rule that's been live-verified against the actual gateway — see [CHAT.md](./CHAT.md)
+- Real notifications: task assignment/comments/mentions/completion, event invites/updates/cancellations, fired reminders, and new/mentioned chat messages all produce real rows in the notification center, not just placeholders — and fan out to FCM push (gracefully disabled without real Firebase credentials — see [FCM.md](./FCM.md)), with user-editable per-category push preferences in Settings
 - Audit logging, health checks, centralized error handling
-- A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task + upcoming-event stats, task list/Kanban/detail pages, a full calendar UI, employee/team directories, a working notification center, and an admin panel with an invite form + audit log viewer
-- The **full database schema** for every remaining feature (chat, notification preferences) — correct, indexed, and ready, but not yet wired to business logic — see [DATABASE.md](./DATABASE.md)
-- An Expo/React Native placeholder app that boots and points at the same API (real screens land in Phase 6)
+- A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task/event/message stats, task list/Kanban/detail pages, a full calendar UI, a real-time chat UI, employee/team directories, a working notification center with editable push preferences, and an admin panel with an invite form + audit log viewer
+- The **full database schema** for the remaining spec surface — correct, indexed, and ready — see [DATABASE.md](./DATABASE.md)
+- An Expo/React Native placeholder app that boots and points at the same API (real screens, including FCM registration and chat, land in Phase 6)
 
 ## Monorepo layout
 
 ```
 apps/
-  api/      NestJS backend (REST API + an in-process BullMQ reminder worker; WebSocket gateway lands in a later phase)
+  api/      NestJS backend (REST API + an in-process BullMQ reminder worker + an authenticated Socket.IO chat gateway)
   web/      Next.js frontend (App Router, Tailwind, responsive desktop/tablet/mobile)
   mobile/   Expo/React Native Android app (Phase 1 = placeholder screen only)
 packages/
@@ -114,4 +115,4 @@ pnpm --filter @arutech/web test        # frontend unit tests
 
 ## A note on scope
 
-This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (chat, FCM push, an Android app, and a live production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–3 are real and complete, and every later feature exists today only as: (a) correct database schema, (b) an empty module folder with a README pointing at the roadmap, and (c) a short honest doc stub — never as something that looks done but isn't.
+This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (a live Firebase project, an Android app, and a production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–5 are real and complete — Phase 4 with one explicit exception: the FCM *code* is real and tested, but sending an actual push requires a Firebase project only a human can create (see FCM.md), so that specific piece is honestly "written, not verified live," not "done." Phases 6–8 exist today only as: (a) correct database schema, (b) an empty module folder or placeholder screen with a README pointing at the roadmap, and (c) a short honest doc stub — never as something that looks done but isn't.

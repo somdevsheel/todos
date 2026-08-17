@@ -46,4 +46,16 @@ export class UserDevicesService {
 
     await this.prisma.userDevice.update({ where: { id }, data: { isActive: false } });
   }
+
+  /**
+   * Called by FcmService when FCM reports a token as unregistered/invalid
+   * (see FCM.md point 4) — a system-driven deactivation, not a user action,
+   * so unlike remove() there's no ownership check or audit entry (mirrors
+   * how ReminderProcessor's markSent isn't audited either). Idempotent: a
+   * token already deactivated, or one that was never registered at all
+   * (already removed, or from a stale/replayed FCM response), is a no-op.
+   */
+  async deactivateByToken(deviceToken: string): Promise<void> {
+    await this.prisma.userDevice.updateMany({ where: { deviceToken, isActive: true }, data: { isActive: false } });
+  }
 }

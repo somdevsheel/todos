@@ -25,7 +25,9 @@
 - **Phase 1**: `/auth`, `/users`, `/organizations`, `/departments`, `/teams`, `/roles`, `/permissions`, `/audit-logs`, `/notifications`, `/user-devices`, `/health`.
 - **Phase 2**: `/tasks` (including `/tasks/stats`, `/tasks/:id/status`, `/tasks/:id/assignees`, `/tasks/:id/attachments`), `/tasks/:id/comments` (task-comments module, nested — a comment always belongs to exactly one task), `/files` (upload via multipart `POST /files`, `GET /files/:id` to download, `DELETE /files/:id`).
 - **Phase 3**: `/events` (including `/events/:id/rsvp`, `/events/:id/participants`) — `GET /events` is a bounded `?from=&to=` date-range query, not a paginated list (see ARCHITECTURE.md), `/reminders` (`GET` returns the caller's own unsent reminders; the BullMQ worker that fires them has no HTTP surface — see NOTIFICATIONS.md).
+- **Phase 4**: `/notifications/preferences` (`GET`/`PATCH`, PUSH channel only — see NOTIFICATIONS.md). No new route group for FCM itself — `FcmService` isn't HTTP-facing, it's invoked internally by `NotificationsService`; see FCM.md.
+- **Phase 5**: `/conversations` (including `/conversations/:id/read`, `/conversations/:id/members`) and nested `/conversations/:id/messages`. Plus one non-REST addition: `/auth/ws-ticket` (`POST`, behind the normal auth guard) mints the short-lived connection ticket the browser uses to open the chat WebSocket directly against the API — see AUTHENTICATION.md's "WebSocket authentication" section. The gateway itself has no REST surface.
 
 ## Not yet implemented
 
-`/conversations`, `/messages`, `/search` — see [ARCHITECTURE.md](./ARCHITECTURE.md) for which phase each lands in.
+`/search` — see [ARCHITECTURE.md](./ARCHITECTURE.md) for which phase it lands in.
