@@ -13,6 +13,7 @@ import { TaskComments } from "@/components/task/TaskComments";
 import { TaskStatusBadge } from "@/components/task/TaskStatusBadge";
 import { EditTaskButton } from "@/components/task/EditTaskButton";
 import { TaskDeleteButton } from "@/components/task/TaskDeleteButton";
+import { ReminderPicker } from "@/components/calendar/ReminderPicker";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -97,6 +98,15 @@ export default async function TaskDetailPage({ params }: { params: Promise<{ id:
         </CardHeader>
         <TaskAttachments taskId={task.id} attachments={task.attachments} />
       </Card>
+
+      {task.dueDate && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Reminder</CardTitle>
+          </CardHeader>
+          <ReminderPicker relatedEntityType="TASK" relatedEntityId={task.id} referenceAt={task.dueDate} />
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

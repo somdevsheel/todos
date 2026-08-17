@@ -29,11 +29,13 @@ At login/refresh, `UserRole` is resolved once into a `roles: string[]` array emb
 
 As of Phase 2: `Task`, `TaskAssignee`, `TaskComment`, `TaskAttachment`, `File`. `TaskComment` has one field beyond the spec's original list — `mentionedUserIds String[] @default([])`, a plain Postgres array, not a join table, added in migration `task_comment_mentions`. Explicit picker-selected @mentions are a property of the comment's content at creation time, not a relation with its own lifecycle, so a join table would be over-modeling it. `File` stores metadata only (`storageKey`, never bytes) — see [DEPLOYMENT.md](./DEPLOYMENT.md) for the storage-provider abstraction.
 
+As of Phase 3: `Event`, `EventParticipant`, `Reminder` — full CRUD/RSVP/reminder-worker business logic, no schema changes needed (the models were already correct — see below). No recurring-event support was added (no RRULE-style field exists; a future migration, not built here).
+
 ## Schema-only (correct DDL, no business logic yet)
 
-`Event`, `EventParticipant`, `Reminder`, `Conversation`, `ConversationMember`, `Message`, `MessageAttachment`, `NotificationPreference`. Each has indexes chosen for the query patterns its owning phase will need (e.g. `Task` already had `@@index([organizationId, status])` and `@@index([organizationId, dueDate])` before Phase 2 wired up any queries against them — cheap to add ahead of time, expensive to retrofit onto a populated table later; the same principle applied to these still-unused tables).
+`Conversation`, `ConversationMember`, `Message`, `MessageAttachment`, `NotificationPreference`. Each has indexes chosen for the query patterns its owning phase will need (e.g. `Task` already had `@@index([organizationId, status])` and `@@index([organizationId, dueDate])` before Phase 2 wired up any queries against them, and `Event`/`Reminder` had theirs before Phase 3 did — cheap to add ahead of time, expensive to retrofit onto a populated table later; the same principle applies to these still-unused tables).
 
-`Reminder` specifically has `@@unique([userId, relatedEntityType, relatedEntityId, remindAt])` — this is the mechanism that will make the Phase 3 reminder worker idempotent: a duplicate insert from a retried BullMQ job is impossible at the database level, not just "unlikely."
+`Reminder` has `@@unique([userId, relatedEntityType, relatedEntityId, remindAt])` — this is the mechanism that makes the Phase 3 reminder worker idempotent (`apps/api/src/reminders/reminder-scheduler.service.ts` + `reminder.processor.ts`): a duplicate insert from a retried BullMQ job is impossible at the database level, not just "unlikely." In practice the worker's `RemindersService.claim()` (an atomic `updateMany` gated on `isSent: false`) is what actually gets exercised on every send — the unique constraint is the backstop for the insert path, not the primary guard.
 
 ## Auth-specific tables not in the spec's literal list
 

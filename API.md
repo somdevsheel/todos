@@ -24,7 +24,8 @@
 
 - **Phase 1**: `/auth`, `/users`, `/organizations`, `/departments`, `/teams`, `/roles`, `/permissions`, `/audit-logs`, `/notifications`, `/user-devices`, `/health`.
 - **Phase 2**: `/tasks` (including `/tasks/stats`, `/tasks/:id/status`, `/tasks/:id/assignees`, `/tasks/:id/attachments`), `/tasks/:id/comments` (task-comments module, nested — a comment always belongs to exactly one task), `/files` (upload via multipart `POST /files`, `GET /files/:id` to download, `DELETE /files/:id`).
+- **Phase 3**: `/events` (including `/events/:id/rsvp`, `/events/:id/participants`) — `GET /events` is a bounded `?from=&to=` date-range query, not a paginated list (see ARCHITECTURE.md), `/reminders` (`GET` returns the caller's own unsent reminders; the BullMQ worker that fires them has no HTTP surface — see NOTIFICATIONS.md).
 
 ## Not yet implemented
 
-`/events`, `/reminders`, `/conversations`, `/messages`, `/search` — see [ARCHITECTURE.md](./ARCHITECTURE.md) for which phase each lands in.
+`/conversations`, `/messages`, `/search` — see [ARCHITECTURE.md](./ARCHITECTURE.md) for which phase each lands in.

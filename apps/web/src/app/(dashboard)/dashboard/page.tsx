@@ -1,10 +1,11 @@
 import { Suspense } from "react";
-import { CalendarDays, MessageCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import { requireAuth } from "@/lib/auth";
 import { hasAnyRole } from "@/lib/rbac";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { NotificationCountWidget } from "@/components/dashboard/NotificationCountWidget";
 import { TaskStatsWidgets } from "@/components/dashboard/TaskStatsWidgets";
+import { UpcomingEventsStatCard, UpcomingEventsCard } from "@/components/dashboard/EventWidgets";
 import { EmployeeCountWidget, DepartmentCountWidget, TeamCountWidget } from "@/components/dashboard/OrgStatsWidgets";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -36,7 +37,9 @@ export default async function DashboardPage() {
           <Suspense fallback={<><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-24 rounded-xl" /><Skeleton className="h-24 rounded-xl" /></>}>
             <TaskStatsWidgets />
           </Suspense>
-          <StatCard icon={CalendarDays} label="Upcoming events" value={0} comingSoon hint="Coming in Phase 3" />
+          <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
+            <UpcomingEventsStatCard />
+          </Suspense>
           <StatCard icon={MessageCircle} label="Unread messages" value={0} comingSoon hint="Coming in Phase 5" />
           <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
             <NotificationCountWidget />
@@ -72,7 +75,9 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Upcoming events</CardTitle>
           </CardHeader>
-          <EmptyState title="Calendar isn't built yet" description="Event management lands in Phase 3 — see ARCHITECTURE.md for the roadmap." />
+          <Suspense fallback={<Skeleton className="h-24 rounded-xl" />}>
+            <UpcomingEventsCard />
+          </Suspense>
         </Card>
       </div>
     </div>

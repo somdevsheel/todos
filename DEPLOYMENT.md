@@ -20,7 +20,7 @@ See the diagram in [ARCHITECTURE.md](./ARCHITECTURE.md). Summary: `apps/web` dep
 
 ## Still to build (Phase 8)
 
-- `workspace-worker` and `workspace-websocket` service Dockerfiles (don't exist yet — there's no worker or WebSocket gateway code yet either, see [ARCHITECTURE.md](./ARCHITECTURE.md)).
+- `workspace-worker` and `workspace-websocket` service Dockerfiles. The reminder worker's *code* exists since Phase 3 (`apps/api/src/reminders/` — BullMQ scheduler + processor) but still runs inside the main API process; splitting it into its own container is what's missing here, not the worker itself. There's no WebSocket gateway code yet at all — see [ARCHITECTURE.md](./ARCHITECTURE.md).
 - A production `docker-compose.yml` (distinct from the dev one) for the Lightsail host, using the same isolated-project-name discipline as the dev compose file, with a persistent volume for `STORAGE_LOCAL_DIR` (or an S3-compatible `StorageProvider`, per the gap above).
 - NGINX config for `api.arutechconsultancy.com` — HTTPS, HTTP→HTTPS redirect, WebSocket upgrade headers, security headers, request size limits, proxy timeouts — written only after inspecting the Lightsail host's existing NGINX config, per [LIGHTSAIL.md](./LIGHTSAIL.md).
 - Structured production logging/monitoring beyond NestJS's default `Logger` and the health endpoint.

@@ -2,6 +2,7 @@ import { Module, ValidationPipe } from "@nestjs/common";
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
+import { ScheduleModule } from "@nestjs/schedule";
 import { ConfigModule } from "./config/config.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
@@ -25,11 +26,15 @@ import { UserDevicesModule } from "./user-devices/user-devices.module";
 import { FilesModule } from "./files/files.module";
 import { TasksModule } from "./tasks/tasks.module";
 import { TaskCommentsModule } from "./task-comments/task-comments.module";
+import { EventsModule } from "./events/events.module";
+import { RemindersModule } from "./reminders/reminders.module";
 
 @Module({
   imports: [
     ConfigModule,
     PrismaModule,
+    // Powers ReminderSchedulerService's @Cron — see reminders/reminder-scheduler.service.ts.
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
@@ -51,8 +56,10 @@ import { TaskCommentsModule } from "./task-comments/task-comments.module";
     FilesModule,
     TasksModule,
     TaskCommentsModule,
-    // NOTE: events/reminders/chat still live under src/modules-future and
-    // are deliberately NOT imported here — see each folder's README.md.
+    EventsModule,
+    RemindersModule,
+    // NOTE: chat still lives under src/modules-future and is deliberately
+    // NOT imported here — see modules-future/chat/README.md.
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }) },

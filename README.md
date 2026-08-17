@@ -2,24 +2,25 @@
 
 Internal collaboration platform for **Arutech Consultancy Services LLP** — company-only authentication, RBAC, task management, calendar, real-time chat, and push-notification-driven workflows, built as the foundation for a future multi-tenant SaaS product.
 
-**This repository currently implements Phases 1–2 (Foundation + Tasks)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. Both phases are real and fully working end-to-end locally — not a prototype — but Calendar, Chat, FCM push, and production deployment are intentionally not built yet; each has a short honest doc stub explaining what's coming.
+**This repository currently implements Phases 1–3 (Foundation + Tasks + Calendar)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. All three phases are real and fully working end-to-end locally — not a prototype — but Chat, FCM push, and production deployment are intentionally not built yet; each has a short honest doc stub explaining what's coming.
 
 ## What's built
 
 - Invitation-only authentication (Argon2id, JWT access + rotating refresh tokens, company-domain enforcement) — see [AUTHENTICATION.md](./AUTHENTICATION.md)
 - RBAC (SUPER_ADMIN / ADMIN / MANAGER / EMPLOYEE), organizations, departments, teams
 - Full task management: CRUD, assignment (with authorization rules), status/priority, comments with explicit @mentions, subtasks, file attachments (provider-abstracted storage, local-disk today) — list and Kanban views
-- Real notifications: task assignment/comments/mentions/completion all produce real rows in the notification center, not just placeholders
+- Full calendar: event CRUD, RSVP, month/week/day/agenda views, a "my calendar" default scope with an optional team-calendar mode, and a real BullMQ reminder worker (running in-process — see ARCHITECTURE.md's Phase 8 note) that turns a user-set reminder into a `TASK_DUE_SOON`/`TASK_OVERDUE`/`EVENT_REMINDER` notification, idempotently
+- Real notifications: task assignment/comments/mentions/completion, event invites/updates/cancellations, and fired reminders all produce real rows in the notification center, not just placeholders
 - Audit logging, health checks, centralized error handling
-- A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task stats, task list/Kanban/detail pages, employee/team directories, a working notification center, and an admin panel with an invite form + audit log viewer
-- The **full database schema** for every remaining feature (events, reminders, chat, notification preferences) — correct, indexed, and ready, but not yet wired to business logic — see [DATABASE.md](./DATABASE.md)
+- A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task + upcoming-event stats, task list/Kanban/detail pages, a full calendar UI, employee/team directories, a working notification center, and an admin panel with an invite form + audit log viewer
+- The **full database schema** for every remaining feature (chat, notification preferences) — correct, indexed, and ready, but not yet wired to business logic — see [DATABASE.md](./DATABASE.md)
 - An Expo/React Native placeholder app that boots and points at the same API (real screens land in Phase 6)
 
 ## Monorepo layout
 
 ```
 apps/
-  api/      NestJS backend (REST API; WebSocket gateway + worker land in later phases)
+  api/      NestJS backend (REST API + an in-process BullMQ reminder worker; WebSocket gateway lands in a later phase)
   web/      Next.js frontend (App Router, Tailwind, responsive desktop/tablet/mobile)
   mobile/   Expo/React Native Android app (Phase 1 = placeholder screen only)
 packages/
@@ -113,4 +114,4 @@ pnpm --filter @arutech/web test        # frontend unit tests
 
 ## A note on scope
 
-This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (chat, calendar, FCM push, an Android app, and a live production deployment) in one pass would mean faking large parts of it. Instead, Phase 1 is real and complete, and every later feature exists today only as: (a) correct database schema, (b) an empty module folder with a README pointing at the roadmap, and (c) a short honest doc stub — never as something that looks done but isn't.
+This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (chat, FCM push, an Android app, and a live production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–3 are real and complete, and every later feature exists today only as: (a) correct database schema, (b) an empty module folder with a README pointing at the roadmap, and (c) a short honest doc stub — never as something that looks done but isn't.
