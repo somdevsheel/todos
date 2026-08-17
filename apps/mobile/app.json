@@ -13,6 +13,10 @@
         "backgroundColor": "#2F5D50"
       }
     },
-    "plugins": []
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications"
+    ]
   }
 }

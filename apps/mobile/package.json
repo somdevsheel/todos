@@ -2,24 +2,38 @@
   "name": "@arutech/mobile",
   "version": "0.1.0",
   "private": true,
-  "description": "Arutech Workspace Android app — React Native + Expo. Phase 1 is a placeholder screen only; auth/tasks/chat/FCM/deep-linking land in Phase 6 (see ANDROID.md).",
-  "main": "index.ts",
+  "description": "Arutech Workspace Android app — React Native + Expo. Real auth/tasks/calendar/chat screens, FCM push, and deep links since Phase 6 (see ANDROID.md).",
+  "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "lint": "echo \"(mobile) no lint configured for the Phase 1 placeholder\" && exit 0",
-    "test": "echo \"(mobile) no tests until Phase 6 builds real screens\" && exit 0"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --fix",
+    "test": "echo \"(mobile) no automated tests yet — verified via tsc + expo export, see ANDROID.md\" && exit 0"
   },
   "dependencies": {
+    "@arutech/shared-types": "workspace:*",
+    "@expo/vector-icons": "^15.0.2",
     "expo": "^57.0.13",
+    "expo-constants": "~57.0.12",
+    "expo-device": "~57.0.1",
+    "expo-linking": "~57.0.6",
+    "expo-notifications": "~57.0.12",
+    "expo-router": "~57.0.14",
+    "expo-secure-store": "~57.0.1",
     "expo-status-bar": "^57.0.1",
     "react": "^19.2.8",
-    "react-native": "0.86.2"
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@types/react": "^19.2.18",
     "babel-preset-expo": "^57.0.7",
+    "eslint": "^9.15.0",
+    "eslint-config-expo": "^57.0.1",
     "typescript": "^5.9.3"
   }
 }

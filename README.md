@@ -2,7 +2,7 @@
 
 Internal collaboration platform for **Arutech Consultancy Services LLP** — company-only authentication, RBAC, task management, calendar, real-time chat, and push-notification-driven workflows, built as the foundation for a future multi-tenant SaaS product.
 
-**This repository currently implements Phases 1–5 (Foundation + Tasks + Calendar + FCM + Chat)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. All five phases are real and fully working end-to-end locally — not a prototype — with one caveat: Phase 4's push-delivery *code* is done and tested, but no real Firebase project exists to send a live push through yet (see [FCM.md](./FCM.md) — that step requires a human with account access). Production deployment is the only piece intentionally not built yet.
+**This repository currently implements Phases 1–6 (Foundation + Tasks + Calendar + FCM + Chat + Android)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. Phases 1–5 are real and fully working end-to-end locally — not a prototype — with one caveat: Phase 4's push-delivery *code* is done and tested, but no real Firebase project exists to send a live push through yet (see [FCM.md](./FCM.md) — that step requires a human with account access). **Phase 6 (Android) carries a bigger caveat**: the app is code-complete (real auth/tasks/calendar/chat screens, verified via `tsc`, ESLint, and a real Metro bundle export) but has never run on an actual emulator or device — none was available in this environment (see [ANDROID.md](./ANDROID.md)). Production deployment is the only piece intentionally not built at all yet.
 
 ## What's built
 
@@ -15,7 +15,7 @@ Internal collaboration platform for **Arutech Consultancy Services LLP** — com
 - Audit logging, health checks, centralized error handling
 - A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task/event/message stats, task list/Kanban/detail pages, a full calendar UI, a real-time chat UI, employee/team directories, a working notification center with editable push preferences, and an admin panel with an invite form + audit log viewer
 - The **full database schema** for the remaining spec surface — correct, indexed, and ready — see [DATABASE.md](./DATABASE.md)
-- An Expo/React Native placeholder app that boots and points at the same API (real screens, including FCM registration and chat, land in Phase 6)
+- An Expo/React Native Android app: real login/tasks/agenda-calendar/chat screens against the same API, secure on-device token storage, FCM device registration, and deep-link routing — code-complete and bundle-verified, never run on a device in this environment — see [ANDROID.md](./ANDROID.md)
 
 ## Monorepo layout
 
@@ -23,7 +23,7 @@ Internal collaboration platform for **Arutech Consultancy Services LLP** — com
 apps/
   api/      NestJS backend (REST API + an in-process BullMQ reminder worker + an authenticated Socket.IO chat gateway)
   web/      Next.js frontend (App Router, Tailwind, responsive desktop/tablet/mobile)
-  mobile/   Expo/React Native Android app (Phase 1 = placeholder screen only)
+  mobile/   Expo/React Native Android app (real screens since Phase 6 — never run on-device here, see ANDROID.md)
 packages/
   shared-types/   TypeScript types/constants shared by api + web (and later, mobile)
 docker/
@@ -79,13 +79,13 @@ To try the full invitation flow: sign in as an ADMIN/SUPER_ADMIN, go to **Admin 
 
 To try tasks: go to **Tasks → New task**, assign it to another seeded user, then sign in as that user to see the assignment notification and the task on their **My Tasks** view. Comment with an @mention to see a second notification arrive for the mentioned person, and attach a file to see the local-disk upload/download round trip.
 
-### Mobile placeholder
+### Android app
 
 ```bash
 pnpm --filter @arutech/mobile start
 ```
 
-Scan the QR code with Expo Go, or press `a` for an Android emulator. See [ANDROID.md](./ANDROID.md).
+Scan the QR code with Expo Go, or press `a` for an Android emulator — real login, tasks, calendar, and chat screens, all against the same local API. Set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` if you're using a physical device instead of an emulator (see `apps/mobile/.env.example`). See [ANDROID.md](./ANDROID.md) for exactly what's built and what's never been run.
 
 ## Tests
 
@@ -115,4 +115,4 @@ pnpm --filter @arutech/web test        # frontend unit tests
 
 ## A note on scope
 
-This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (a live Firebase project, an Android app, and a production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–5 are real and complete — Phase 4 with one explicit exception: the FCM *code* is real and tested, but sending an actual push requires a Firebase project only a human can create (see FCM.md), so that specific piece is honestly "written, not verified live," not "done." Phases 6–8 exist today only as: (a) correct database schema, (b) an empty module folder or placeholder screen with a README pointing at the roadmap, and (c) a short honest doc stub — never as something that looks done but isn't.
+This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (a live Firebase project, a physically-verified Android app, and a production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–6 are real and complete, with two named exceptions rather than a blanket claim: Phase 4's FCM *code* is real and tested, but sending an actual push requires a Firebase project only a human can create (see FCM.md); Phase 6's Android app is real and code-complete (`tsc`, ESLint, and a genuine Metro bundle export all pass) but has never run on an emulator or device, since none exists in this environment (see ANDROID.md) — a compile-and-bundle check is real signal, but it isn't the same claim as "I watched it work." Phases 7–8 exist today only as: (a) correct database schema, (b) a partially-built admin UI or a short honest doc stub, never as something that looks done but isn't.
