@@ -1,4 +1,4 @@
-import { ArrayMinSize, ArrayUnique, IsArray, IsIn, IsOptional, IsString, IsUUID, MinLength, ValidateIf } from "class-validator";
+import { ArrayMinSize, ArrayUnique, IsArray, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from "class-validator";
 import { CONVERSATION_TYPES, type ConversationType } from "@arutech/shared-types";
 
 export class CreateConversationDto {
@@ -9,6 +9,7 @@ export class CreateConversationDto {
   @ValidateIf((dto: CreateConversationDto) => dto.type === "GROUP")
   @IsString()
   @MinLength(1)
+  @MaxLength(200)
   name?: string;
 
   /** DIRECT: exactly one other user. GROUP: at least one other user (the creator is always added automatically). */

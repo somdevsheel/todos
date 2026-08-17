@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
 import { TASK_PRIORITIES, TASK_STATUSES, TASK_VIEWS, type TaskPriority, type TaskStatus, type TaskView } from "@arutech/shared-types";
 import { PaginationQueryDto } from "../../common/dto/pagination-query.dto";
 
@@ -34,5 +34,6 @@ export class ListTasksQueryDto extends PaginationQueryDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   search?: string;
 }

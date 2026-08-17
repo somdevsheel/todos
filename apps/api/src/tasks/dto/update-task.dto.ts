@@ -1,14 +1,16 @@
-import { IsDateString, IsIn, IsOptional, IsString, IsUUID, MinLength } from "class-validator";
+import { IsDateString, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength } from "class-validator";
 import { TASK_PRIORITIES, type TaskPriority } from "@arutech/shared-types";
 
 export class UpdateTaskDto {
   @IsOptional()
   @IsString()
   @MinLength(1)
+  @MaxLength(200)
   title?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(10000)
   description?: string;
 
   @IsOptional()
