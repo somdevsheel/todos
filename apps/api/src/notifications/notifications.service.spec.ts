@@ -110,6 +110,7 @@ describe("NotificationsService.getPreferences", () => {
       { channel: "PUSH", category: "reminders", enabled: true },
       { channel: "PUSH", category: "events", enabled: true },
       { channel: "PUSH", category: "chat", enabled: true },
+      { channel: "PUSH", category: "announcements", enabled: true },
     ]);
   });
 });

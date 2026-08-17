@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post } from "@nestjs/common";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { OrgScopeResource } from "../common/decorators/org-scope-resource.decorator";
 import type { AuthenticatedUser } from "../common/types/authenticated-request";
 import { RolesService } from "./roles.service";
 import { AssignRoleDto } from "./dto/assign-role.dto";
+import { UpdateRolePermissionsDto } from "./dto/update-role-permissions.dto";
 
 @Controller()
 export class RolesController {
@@ -18,6 +19,12 @@ export class RolesController {
   @Get("permissions")
   findAllPermissions() {
     return this.rolesService.findAllPermissions();
+  }
+
+  @Patch("roles/:id/permissions")
+  @Roles("SUPER_ADMIN")
+  updateRolePermissions(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() dto: UpdateRolePermissionsDto) {
+    return this.rolesService.updateRolePermissions(id, dto.permissionIds, user);
   }
 
   @Post("users/:id/roles")

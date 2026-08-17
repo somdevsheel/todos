@@ -1,7 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { AUDIT_ACTIONS, type RoleName } from "@arutech/shared-types";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { AUDIT_ACTIONS, type RoleName, type RoleWithPermissions } from "@arutech/shared-types";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import type { AuthenticatedUser } from "../common/types/authenticated-request";
 
 @Injectable()
 export class RolesService {
@@ -10,12 +11,58 @@ export class RolesService {
     private readonly auditService: AuditService,
   ) {}
 
-  findAllRoles() {
-    return this.prisma.role.findMany({ orderBy: { name: "asc" } });
+  async findAllRoles(): Promise<RoleWithPermissions[]> {
+    const roles = await this.prisma.role.findMany({
+      include: { rolePermissions: { select: { permissionId: true } } },
+      orderBy: { name: "asc" },
+    });
+    return roles.map((role) => ({
+      id: role.id,
+      name: role.name as RoleName,
+      description: role.description,
+      isSystem: role.isSystem,
+      permissionIds: role.rolePermissions.map((rp) => rp.permissionId),
+    }));
   }
 
   findAllPermissions() {
     return this.prisma.permission.findMany({ orderBy: { key: "asc" } });
+  }
+
+  /**
+   * Replaces the role's full permission set (delete-all-then-recreate —
+   * the simplest correct semantics for a checkbox-grid UI; no incremental
+   * add/remove endpoints needed). Makes RolePermission real and editable,
+   * which `prisma/seed.ts`'s own comment flagged as the gap this closes —
+   * but note this doesn't gate any endpoint yet: every guard in this app
+   * checks role *names*, never permission keys. See ARCHITECTURE.md's
+   * Phase 7 entry.
+   */
+  async updateRolePermissions(roleId: string, permissionIds: string[], actor: AuthenticatedUser): Promise<RoleWithPermissions> {
+    const role = await this.prisma.role.findUnique({ where: { id: roleId } });
+    if (!role) throw new NotFoundException("Role not found");
+
+    const uniqueIds = [...new Set(permissionIds)];
+    if (uniqueIds.length) {
+      const count = await this.prisma.permission.count({ where: { id: { in: uniqueIds } } });
+      if (count !== uniqueIds.length) throw new BadRequestException("One or more permissions don't exist.");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.rolePermission.deleteMany({ where: { roleId } }),
+      this.prisma.rolePermission.createMany({ data: uniqueIds.map((permissionId) => ({ roleId, permissionId })) }),
+    ]);
+
+    await this.auditService.log({
+      organizationId: actor.organizationId,
+      actorUserId: actor.sub,
+      action: AUDIT_ACTIONS.ROLE_PERMISSIONS_UPDATED,
+      entityType: "Role",
+      entityId: roleId,
+      metadata: { permissionIds: uniqueIds },
+    });
+
+    return { id: role.id, name: role.name as RoleName, description: role.description, isSystem: role.isSystem, permissionIds: uniqueIds };
   }
 
   async assignRole(organizationId: string, userId: string, actorId: string, roleName: RoleName): Promise<void> {

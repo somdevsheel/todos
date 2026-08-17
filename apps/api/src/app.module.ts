@@ -32,6 +32,7 @@ import { RedisModule } from "./redis/redis.module";
 import { ConversationsModule } from "./conversations/conversations.module";
 import { MessagesModule } from "./messages/messages.module";
 import { WebsocketModule } from "./websocket/websocket.module";
+import { AnnouncementsModule } from "./announcements/announcements.module";
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { WebsocketModule } from "./websocket/websocket.module";
     ConversationsModule,
     MessagesModule,
     WebsocketModule,
+    AnnouncementsModule,
   ],
   providers: [
     { provide: APP_PIPE, useValue: new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }) },

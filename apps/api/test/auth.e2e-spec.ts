@@ -35,7 +35,7 @@ describe("Auth flow (e2e)", () => {
   it("rejects inviting a non-company-domain email", async () => {
     const login = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
-      .send({ email: "somdev@arutechconsultancy.com", password: "ArutechDev#2026" });
+      .send({ email: "hello@arutechconsultancy.com", password: "ArutechDev#2026" });
     expect(login.status).toBe(200);
     const accessToken = login.body.data.accessToken;
 
@@ -53,7 +53,7 @@ describe("Auth flow (e2e)", () => {
     // 1. Log in as the seeded SUPER_ADMIN.
     const adminLogin = await request(app.getHttpServer())
       .post("/api/v1/auth/login")
-      .send({ email: "somdev@arutechconsultancy.com", password: "ArutechDev#2026" });
+      .send({ email: "hello@arutechconsultancy.com", password: "ArutechDev#2026" });
     expect(adminLogin.status).toBe(200);
     const adminAccessToken = adminLogin.body.data.accessToken;
 

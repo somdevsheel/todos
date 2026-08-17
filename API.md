@@ -27,6 +27,7 @@
 - **Phase 3**: `/events` (including `/events/:id/rsvp`, `/events/:id/participants`) — `GET /events` is a bounded `?from=&to=` date-range query, not a paginated list (see ARCHITECTURE.md), `/reminders` (`GET` returns the caller's own unsent reminders; the BullMQ worker that fires them has no HTTP surface — see NOTIFICATIONS.md).
 - **Phase 4**: `/notifications/preferences` (`GET`/`PATCH`, PUSH channel only — see NOTIFICATIONS.md). No new route group for FCM itself — `FcmService` isn't HTTP-facing, it's invoked internally by `NotificationsService`; see FCM.md.
 - **Phase 5**: `/conversations` (including `/conversations/:id/read`, `/conversations/:id/members`) and nested `/conversations/:id/messages`. Plus one non-REST addition: `/auth/ws-ticket` (`POST`, behind the normal auth guard) mints the short-lived connection ticket the browser uses to open the chat WebSocket directly against the API — see AUTHENTICATION.md's "WebSocket authentication" section. The gateway itself has no REST surface.
+- **Phase 7**: `/announcements` (`GET`/`POST`/`DELETE`, org-wide broadcasts — `POST` is SUPER_ADMIN/ADMIN, creating one fans a `SYSTEM_NOTIFICATION` out to every other org member). `PATCH /roles/:id/permissions` (SUPER_ADMIN-only, replaces a role's full `RolePermission` set — see DATABASE.md's RBAC section for the caveat that this doesn't gate any endpoint yet). No new route groups for departments/teams/users/roles admin-editing — those endpoints already existed from Phase 1 and Phase 7 is a frontend-only addition on top of them.
 
 ## Not yet implemented
 

@@ -1,14 +1,16 @@
-import { Users2 } from "lucide-react";
-import type { TeamSummary } from "@arutech/shared-types";
+import type { DepartmentSummary, TeamSummary } from "@arutech/shared-types";
 import { requireRole } from "@/lib/auth";
+import { hasAnyRole } from "@/lib/rbac";
 import { apiFetch, getAccessTokenFromCookies } from "@/lib/api-client";
-import { Card } from "@/components/ui/Card";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { TeamsManager } from "@/components/team/TeamsManager";
 
 export default async function TeamsPage() {
-  await requireRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
+  const user = await requireRole(["SUPER_ADMIN", "ADMIN", "MANAGER"]);
   const accessToken = await getAccessTokenFromCookies();
-  const teams = await apiFetch<TeamSummary[]>("/teams", { accessToken });
+  const [teams, departments] = await Promise.all([
+    apiFetch<TeamSummary[]>("/teams", { accessToken }),
+    apiFetch<DepartmentSummary[]>("/departments", { accessToken }),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -17,19 +19,12 @@ export default async function TeamsPage() {
         <p className="text-sm text-[var(--color-ink-muted)]">{teams.length} team{teams.length === 1 ? "" : "s"} in the organization.</p>
       </div>
 
-      {teams.length === 0 ? (
-        <EmptyState icon={Users2} title="No teams yet" description="Teams are created from the Admin panel." />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {teams.map((team) => (
-            <Card key={team.id}>
-              <p className="font-medium text-[var(--color-ink)]">{team.name}</p>
-              {team.description && <p className="mt-1 text-sm text-[var(--color-ink-muted)]">{team.description}</p>}
-              <p className="mt-3 text-xs text-[var(--color-ink-muted)]">{team.memberCount ?? 0} member{team.memberCount === 1 ? "" : "s"}</p>
-            </Card>
-          ))}
-        </div>
-      )}
+      <TeamsManager
+        teams={teams}
+        departments={departments}
+        canCreateOrEdit={hasAnyRole(user, ["SUPER_ADMIN", "ADMIN", "MANAGER"])}
+        canDelete={hasAnyRole(user, ["SUPER_ADMIN", "ADMIN"])}
+      />
     </div>
   );
 }

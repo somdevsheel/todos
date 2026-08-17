@@ -4,7 +4,7 @@ export const ORG_SCOPE_RESOURCE_KEY = "orgScopeResource";
 
 export interface OrgScopeResourceMetadata {
   /** Name of the Prisma delegate to check, e.g. "department", "team", "user". */
-  model: "department" | "team" | "user" | "task" | "file" | "event" | "reminder";
+  model: "department" | "team" | "user" | "task" | "file" | "event" | "reminder" | "announcement";
   /** Route param holding the resource id. Defaults to "id". */
   paramName?: string;
 }

@@ -1,3 +1,4 @@
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import { hashToken } from "./token.util";
 import { DomainNotAllowedException, InvitationExpiredException, InvitationInvalidException } from "../common/exceptions/app.exception";
 import { createAuthService } from "./auth.test-utils";
@@ -111,5 +112,50 @@ describe("AuthService invitation flow", () => {
     expect(result.user.email).toBe(invitation.email);
     expect(result.user.roles).toEqual(["EMPLOYEE"]);
     expect(result.accessToken).toBe("signed.jwt.token");
+  });
+
+  describe("reinvite", () => {
+    it("rejects reinviting a user who isn't PENDING_INVITE", async () => {
+      const { authService, prisma } = createAuthService();
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue({ id: "user-1", status: "ACTIVE", email: "a@arutechconsultancy.com" });
+
+      await expect(authService.reinvite({ sub: "admin-1", organizationId: "org-1" }, "user-1")).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+    });
+
+    it("404s when the user doesn't exist in this organization", async () => {
+      const { authService, prisma } = createAuthService();
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue(null);
+
+      await expect(authService.reinvite({ sub: "admin-1", organizationId: "org-1" }, "nope")).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it("revokes the old pending invitation, creates a fresh one reusing its role/department, and re-emails it", async () => {
+      const { authService, prisma, mailerService, auditService } = createAuthService();
+      (prisma.user.findFirst as jest.Mock).mockResolvedValue({
+        id: "user-1",
+        status: "PENDING_INVITE",
+        email: "new.hire@arutechconsultancy.com",
+      });
+      const previousInvitation = { id: "inv-old", roleId: "role-employee", departmentId: "dept-1", teamId: null };
+      (prisma.invitation.findFirst as jest.Mock).mockResolvedValue(previousInvitation);
+      (prisma.invitation.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+      (prisma.invitation.create as jest.Mock).mockResolvedValue({ id: "inv-new" });
+      (prisma.organization.findUniqueOrThrow as jest.Mock).mockResolvedValue({ id: "org-1", name: "Arutech Consultancy Services LLP" });
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue({ id: "admin-1", firstName: "Priya", lastName: "Sharma" });
+
+      const result = await authService.reinvite({ sub: "admin-1", organizationId: "org-1" }, "user-1");
+
+      expect(prisma.invitation.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ email: "new.hire@arutechconsultancy.com", status: "PENDING" }), data: { status: "REVOKED" } }),
+      );
+      expect(prisma.invitation.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ roleId: "role-employee", departmentId: "dept-1" }) }),
+      );
+      expect(mailerService.send).toHaveBeenCalledWith(expect.objectContaining({ to: "new.hire@arutechconsultancy.com" }));
+      expect(auditService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "USER_REINVITED" }));
+      expect(result.invitationId).toBe("inv-new");
+    });
   });
 });

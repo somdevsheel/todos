@@ -12,6 +12,6 @@ import { JwtAccessStrategy } from "./strategies/jwt-access.strategy";
   imports: [PassportModule, JwtModule.register({}), MailerModule, AuditModule],
   controllers: [AuthController],
   providers: [AuthService, EmailDomainService, JwtAccessStrategy],
-  exports: [EmailDomainService],
+  exports: [EmailDomainService, AuthService],
 })
 export class AuthModule {}

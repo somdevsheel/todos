@@ -2,7 +2,7 @@
 
 Internal collaboration platform for **Arutech Consultancy Services LLP** — company-only authentication, RBAC, task management, calendar, real-time chat, and push-notification-driven workflows, built as the foundation for a future multi-tenant SaaS product.
 
-**This repository currently implements Phases 1–6 (Foundation + Tasks + Calendar + FCM + Chat + Android)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. Phases 1–5 are real and fully working end-to-end locally — not a prototype — with one caveat: Phase 4's push-delivery *code* is done and tested, but no real Firebase project exists to send a live push through yet (see [FCM.md](./FCM.md) — that step requires a human with account access). **Phase 6 (Android) carries a bigger caveat**: the app is code-complete (real auth/tasks/calendar/chat screens, verified via `tsc`, ESLint, and a real Metro bundle export) but has never run on an actual emulator or device — none was available in this environment (see [ANDROID.md](./ANDROID.md)). Production deployment is the only piece intentionally not built at all yet.
+**This repository currently implements Phases 1–7 (Foundation + Tasks + Calendar + FCM + Chat + Android + Admin)** of an 8-phase roadmap. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full plan and exactly what is/isn't built yet. Phases 1–5 and 7 are real and fully working end-to-end locally — not a prototype — with one caveat: Phase 4's push-delivery *code* is done and tested, but no real Firebase project exists to send a live push through yet (see [FCM.md](./FCM.md) — that step requires a human with account access). **Phase 6 (Android) carries a bigger caveat**: the app is code-complete (real auth/tasks/calendar/chat screens, verified via `tsc`, ESLint, and a real Metro bundle export) but has never run on an actual emulator or device — none was available in this environment (see [ANDROID.md](./ANDROID.md)). Production deployment is the only piece intentionally not built at all yet.
 
 ## What's built
 
@@ -13,9 +13,10 @@ Internal collaboration platform for **Arutech Consultancy Services LLP** — com
 - Real-time chat: direct + group conversations, an authenticated Socket.IO gateway (ticket-based auth that keeps the real session JWT httpOnly — see [AUTHENTICATION.md](./AUTHENTICATION.md)), typing indicators, presence, read receipts, and @mentions, with an online/push notification-dedup rule that's been live-verified against the actual gateway — see [CHAT.md](./CHAT.md)
 - Real notifications: task assignment/comments/mentions/completion, event invites/updates/cancellations, fired reminders, and new/mentioned chat messages all produce real rows in the notification center, not just placeholders — and fan out to FCM push (gracefully disabled without real Firebase credentials — see [FCM.md](./FCM.md)), with user-editable per-category push preferences in Settings
 - Audit logging, health checks, centralized error handling
-- A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task/event/message stats, task list/Kanban/detail pages, a full calendar UI, a real-time chat UI, employee/team directories, a working notification center with editable push preferences, and an admin panel with an invite form + audit log viewer
-- The **full database schema** for the remaining spec surface — correct, indexed, and ready — see [DATABASE.md](./DATABASE.md)
+- A responsive Next.js web app: login/invitation/password-reset flows, role-aware dashboard with live task/event/message stats, task list/Kanban/detail pages, a full calendar UI, a real-time chat UI, employee/team directories, and a working notification center with editable push preferences
 - An Expo/React Native Android app: real login/tasks/agenda-calendar/chat screens against the same API, secure on-device token storage, FCM device registration, and deep-link routing — code-complete and bundle-verified, never run on a device in this environment — see [ANDROID.md](./ANDROID.md)
+- Full admin tooling: employee/team/department management UI (not just directories — create/edit/delete, member add/remove, activate/deactivate, role assign/revoke), org-wide announcements that fan out real notifications, a filterable/paginated audit log, and a fine-grained permission-editing UI for roles (persists real data; doesn't gate any endpoint yet — authorization is still role-name-based, see [DATABASE.md](./DATABASE.md))
+- The **full database schema** for the remaining spec surface — correct, indexed, and ready — see [DATABASE.md](./DATABASE.md)
 
 ## Monorepo layout
 
@@ -69,7 +70,7 @@ Then open http://localhost:3000/login. Seeded dev accounts (see `apps/api/prisma
 
 | Role | Email | Password |
 |---|---|---|
-| SUPER_ADMIN | somdev@arutechconsultancy.com | `ArutechDev#2026` |
+| SUPER_ADMIN | hello@arutechconsultancy.com | `ArutechDev#2026` |
 | ADMIN | priya.admin@arutechconsultancy.com | `ArutechDev#2026` |
 | MANAGER | kajal.manager@arutechconsultancy.com | `ArutechDev#2026` |
 | EMPLOYEE | rahul.dev@arutechconsultancy.com | `ArutechDev#2026` |
@@ -105,14 +106,14 @@ pnpm --filter @arutech/web test        # frontend unit tests
 | [AUTHENTICATION.md](./AUTHENTICATION.md) | Invitation flow, token lifecycle, company-domain enforcement |
 | [API.md](./API.md) | REST API conventions and implemented route groups |
 | [NOTIFICATIONS.md](./NOTIFICATIONS.md) | The real notification pipeline (task events today) + future FCM design |
-| [FCM.md](./FCM.md) | Firebase Cloud Messaging integration plan (stub) |
-| [CHAT.md](./CHAT.md) | Real-time chat design (stub) |
+| [FCM.md](./FCM.md) | Firebase Cloud Messaging integration — code done, no live Firebase project |
+| [CHAT.md](./CHAT.md) | Real-time chat design and live-verified WebSocket behavior |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Production deployment plan (stub) |
 | [LIGHTSAIL.md](./LIGHTSAIL.md) | AWS Lightsail deployment safety rules (stub) |
 | [VERCEL.md](./VERCEL.md) | Vercel deployment plan for apps/web (stub) |
-| [ANDROID.md](./ANDROID.md) | Android app roadmap (stub) |
+| [ANDROID.md](./ANDROID.md) | Android app — code-complete, never run on-device |
 | [SECURITY.md](./SECURITY.md) | Security posture summary (stub — details live in AUTHENTICATION.md today) |
 
 ## A note on scope
 
-This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (a live Firebase project, a physically-verified Android app, and a production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–6 are real and complete, with two named exceptions rather than a blanket claim: Phase 4's FCM *code* is real and tested, but sending an actual push requires a Firebase project only a human can create (see FCM.md); Phase 6's Android app is real and code-complete (`tsc`, ESLint, and a genuine Metro bundle export all pass) but has never run on an emulator or device, since none exists in this environment (see ANDROID.md) — a compile-and-bundle check is real signal, but it isn't the same claim as "I watched it work." Phases 7–8 exist today only as: (a) correct database schema, (b) a partially-built admin UI or a short honest doc stub, never as something that looks done but isn't.
+This is deliberately **not** a finished product. Building an entire 63-section spec's worth of features (a live Firebase project, a physically-verified Android app, and a production deployment) in one pass would mean faking large parts of it. Instead, Phases 1–5 and 7 are real and complete, with two named exceptions rather than a blanket claim: Phase 4's FCM *code* is real and tested, but sending an actual push requires a Firebase project only a human can create (see FCM.md); Phase 6's Android app is real and code-complete (`tsc`, ESLint, and a genuine Metro bundle export all pass) but has never run on an emulator or device, since none exists in this environment (see ANDROID.md) — a compile-and-bundle check is real signal, but it isn't the same claim as "I watched it work." Phase 7's admin tooling is real and live-verified end-to-end, with one honest caveat of its own: role-permission editing persists real, audited data but doesn't gate any endpoint yet, since every guard in the app is still role-name-based, not permission-key-based (see DATABASE.md). Phase 8 exists today only as: (a) correct database schema, (b) a short honest doc stub, never as something that looks done but isn't.

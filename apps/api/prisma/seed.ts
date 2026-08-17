@@ -43,7 +43,7 @@ interface SeedUser {
 }
 
 const SEED_USERS: SeedUser[] = [
-  { email: "somdev@arutechconsultancy.com", firstName: "Somdev", lastName: "Sheel", role: "SUPER_ADMIN", department: "Management" },
+  { email: "hello@arutechconsultancy.com", firstName: "Somdev", lastName: "Sheel", role: "SUPER_ADMIN", department: "Management" },
   { email: "priya.admin@arutechconsultancy.com", firstName: "Priya", lastName: "Sharma", role: "ADMIN", department: "Operations" },
   { email: "kajal.manager@arutechconsultancy.com", firstName: "Kajal", lastName: "Verma", role: "MANAGER", department: "Development" },
   { email: "rahul.dev@arutechconsultancy.com", firstName: "Rahul", lastName: "Iyer", role: "EMPLOYEE", department: "Development" },
@@ -75,9 +75,11 @@ async function main(): Promise<void> {
     permissionByKey.set(key, created);
   }
 
-  // Minimal starter mapping — SUPER_ADMIN and ADMIN get everything seeded;
-  // fine-grained permission editing is a later-phase concern (see
-  // DATABASE.md — RolePermission is schema-ready, not yet API-editable).
+  // Minimal starter mapping — SUPER_ADMIN and ADMIN get everything seeded.
+  // As of Phase 7, RolePermission is API-editable (PATCH /roles/:id/permissions,
+  // see DATABASE.md), but this seed data is still just the starting point —
+  // no guard reads Permission/RolePermission yet, so this mapping doesn't
+  // gate anything on its own.
   for (const roleName of ["SUPER_ADMIN", "ADMIN"]) {
     const role = roleByName.get(roleName)!;
     for (const permission of permissionByKey.values()) {

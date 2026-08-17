@@ -86,12 +86,17 @@ export class TeamsService {
 
   async listMembers(organizationId: string, teamId: string): Promise<TeamMemberSummary[]> {
     await this.assertTeamInOrg(organizationId, teamId);
-    const members = await this.prisma.teamMember.findMany({ where: { teamId }, orderBy: { joinedAt: "asc" } });
+    const members = await this.prisma.teamMember.findMany({
+      where: { teamId },
+      include: { user: { select: { firstName: true, lastName: true, avatarUrl: true } } },
+      orderBy: { joinedAt: "asc" },
+    });
     return members.map((member) => ({
       id: member.id,
       teamId: member.teamId,
       userId: member.userId,
       joinedAt: member.joinedAt.toISOString(),
+      user: { firstName: member.user.firstName, lastName: member.user.lastName, avatarUrl: member.user.avatarUrl },
     }));
   }
 

@@ -3,6 +3,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { OrgScopeResource } from "../common/decorators/org-scope-resource.decorator";
 import type { AuthenticatedUser } from "../common/types/authenticated-request";
+import { AuthService } from "../auth/auth.service";
 import { UsersService } from "./users.service";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { AdminUpdateUserDto } from "./dto/admin-update-user.dto";
@@ -10,7 +11,10 @@ import { ListUsersQueryDto } from "./dto/list-users-query.dto";
 
 @Controller("users")
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get("me")
   me(@CurrentUser() user: AuthenticatedUser) {
@@ -52,5 +56,16 @@ export class UsersController {
   @OrgScopeResource({ model: "user" })
   activate(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
     return this.usersService.activate(user.organizationId, id, user.sub);
+  }
+
+  // Note: reinvite lives on AuthService (it owns invitation-token generation
+  // and the invite email template) — routed through /users/:id/reinvite
+  // rather than /auth/reinvite/:id so it sits next to activate/deactivate,
+  // matching how the employee-actions UI groups these together.
+  @Post(":id/reinvite")
+  @Roles("SUPER_ADMIN", "ADMIN")
+  @OrgScopeResource({ model: "user" })
+  reinvite(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) {
+    return this.authService.reinvite({ sub: user.sub, organizationId: user.organizationId }, id);
   }
 }

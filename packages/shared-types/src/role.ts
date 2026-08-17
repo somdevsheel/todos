@@ -18,3 +18,24 @@ export const ROLE_LABELS: Record<RoleName, string> = {
 
 /** Roles that see organization-wide dashboard/nav affordances rather than just their own work. */
 export const ORG_LEVEL_ROLES: RoleName[] = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+
+export interface PermissionSummary {
+  id: string;
+  key: string;
+  description?: string | null;
+}
+
+/**
+ * A Role plus the ids of the Permissions currently attached to it (Phase
+ * 7's `PATCH /roles/:id/permissions` editing UI). Note this data is real
+ * and persisted correctly but doesn't gate anything yet — every guard in
+ * this app checks role *names* (`@Roles('ADMIN')`), never permission keys.
+ * See ARCHITECTURE.md's Phase 7 entry.
+ */
+export interface RoleWithPermissions {
+  id: string;
+  name: RoleName;
+  description?: string | null;
+  isSystem: boolean;
+  permissionIds: string[];
+}

@@ -14,3 +14,4 @@ export * from "./notification-preference";
 export * from "./event";
 export * from "./reminder";
 export * from "./chat";
+export * from "./announcement";

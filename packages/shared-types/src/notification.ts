@@ -28,11 +28,14 @@ export const NOTIFICATION_TYPES = {
   // — see PresenceService / CHAT.md's online-vs-push rule.
   NEW_MESSAGE: "NEW_MESSAGE",
   MESSAGE_MENTION: "MESSAGE_MENTION",
+  // Phase 7 — fanned out to every other org member when an
+  // announcement is posted (AnnouncementsService.create()).
+  SYSTEM_NOTIFICATION: "SYSTEM_NOTIFICATION",
   // Reserved, no producer yet:
   // EVENT_STARTING                        — a "starting now" ping distinct
   //                                          from a user-set Reminder; not
   //                                          built in Phase 3.
-  // TEAM_INVITATION / ACCOUNT_INVITATION / SYSTEM_NOTIFICATION
+  // TEAM_INVITATION / ACCOUNT_INVITATION
 } as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];
@@ -44,7 +47,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICA
  * there's no fallback default, so forgetting is a compile error wherever
  * this map is used exhaustively.
  */
-export const NOTIFICATION_CATEGORIES = ["tasks", "reminders", "events", "chat"] as const;
+export const NOTIFICATION_CATEGORIES = ["tasks", "reminders", "events", "chat", "announcements"] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> = {
@@ -52,6 +55,7 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<NotificationCategory, string> 
   reminders: "Reminders",
   events: "Calendar events",
   chat: "Chat",
+  announcements: "Announcements",
 };
 
 export const NOTIFICATION_TYPE_CATEGORY: Record<NotificationType, NotificationCategory> = {
@@ -67,4 +71,5 @@ export const NOTIFICATION_TYPE_CATEGORY: Record<NotificationType, NotificationCa
   EVENT_CANCELLED: "events",
   NEW_MESSAGE: "chat",
   MESSAGE_MENTION: "chat",
+  SYSTEM_NOTIFICATION: "announcements",
 };

@@ -47,6 +47,7 @@ model Organization {
   conversations       Conversation[]
   files               File[]
   userRoles           UserRole[]
+  announcements       Announcement[]
 
   @@map("organizations")
 }
@@ -161,6 +162,7 @@ model User {
   conversationsCreated Conversation[] @relation("ConversationCreatedBy")
   conversationMemberships ConversationMember[]
   messagesSent         Message[]
+  announcementsCreated Announcement[] @relation("AnnouncementCreatedBy")
 
   // Email is unique per organization, not globally — keeps the schema
   // genuinely multi-org-ready without hardcoding "there is only one org".
@@ -683,4 +685,27 @@ model MessageAttachment {
 
   @@unique([messageId, fileId])
   @@map("message_attachments")
+}
+
+// =============================================================================
+// Announcements (Phase 7)
+// =============================================================================
+
+model Announcement {
+  id              String    @id @default(uuid())
+  organizationId  String
+  createdByUserId String
+  title           String
+  body            String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User         @relation("AnnouncementCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  // Org-wide broadcasts only — no audience/team scoping (known
+  // simplification, see ARCHITECTURE.md's Phase 7 entry).
+  @@index([organizationId, createdAt])
+  @@map("announcements")
 }

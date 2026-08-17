@@ -12,4 +12,9 @@ export interface TeamMemberSummary {
   teamId: string;
   userId: string;
   joinedAt: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string | null;
+  };
 }

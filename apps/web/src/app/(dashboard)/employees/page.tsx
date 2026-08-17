@@ -1,9 +1,11 @@
+import Link from "next/link";
 import type { PaginatedResult, UserSummary } from "@arutech/shared-types";
 import { ROLE_LABELS } from "@arutech/shared-types";
 import { requireRole } from "@/lib/auth";
 import { apiFetch, getAccessTokenFromCookies } from "@/lib/api-client";
 import { Card } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { UserStatusBadge } from "@/components/user/UserStatusBadge";
 
 export default async function EmployeesPage() {
   await requireRole(["SUPER_ADMIN", "ADMIN"]);
@@ -32,16 +34,18 @@ export default async function EmployeesPage() {
             </thead>
             <tbody>
               {items.map((employee) => (
-                <tr key={employee.id} className="border-b border-[var(--color-border)] last:border-0">
+                <tr key={employee.id} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-subtle)]">
                   <td className="px-4 py-3 font-medium text-[var(--color-ink)]">
-                    {employee.firstName} {employee.lastName}
+                    <Link href={`/employees/${employee.id}`} className="hover:underline">
+                      {employee.firstName} {employee.lastName}
+                    </Link>
                   </td>
                   <td className="px-4 py-3 text-[var(--color-ink-muted)]">{employee.email}</td>
                   <td className="px-4 py-3 text-[var(--color-ink-muted)]">
                     {employee.roles.map((role) => ROLE_LABELS[role]).join(", ") || "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={employee.status} />
+                    <UserStatusBadge status={employee.status} />
                   </td>
                 </tr>
               ))}
@@ -51,20 +55,4 @@ export default async function EmployeesPage() {
       )}
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: UserSummary["status"] }) {
-  const styles: Record<UserSummary["status"], string> = {
-    ACTIVE: "bg-[var(--color-accent-soft)] text-[var(--color-accent-strong)]",
-    PENDING_INVITE: "bg-amber-100 text-amber-800",
-    SUSPENDED: "bg-red-100 text-red-800",
-    DEACTIVATED: "bg-[var(--color-surface-subtle)] text-[var(--color-ink-muted)]",
-  };
-  const labels: Record<UserSummary["status"], string> = {
-    ACTIVE: "Active",
-    PENDING_INVITE: "Invited",
-    SUSPENDED: "Suspended",
-    DEACTIVATED: "Deactivated",
-  };
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[status]}`}>{labels[status]}</span>;
 }

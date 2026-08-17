@@ -175,6 +175,82 @@ export class AuthService {
     return { id: user.id, email: user.email, status: user.status, invitationId: invitation.id };
   }
 
+  /**
+   * Resends an invitation for a user who never accepted the original one —
+   * e.g. the email never arrived, or its 7-day link expired. Revokes every
+   * still-pending `Invitation` row for this email first (so an old copy of
+   * the invite email can never be used after a newer one was sent) and
+   * reuses the most recent invitation's role/department/team rather than
+   * accepting new ones — this is a resend, not a re-assignment; use
+   * `adminUpdate`/role-assignment endpoints to change those.
+   */
+  async reinvite(
+    actor: { sub: string; organizationId: string },
+    userId: string,
+  ): Promise<{ id: string; email: string; status: string; invitationId: string }> {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, organizationId: actor.organizationId, deletedAt: null },
+    });
+    if (!user) throw new NotFoundException("User not found");
+    if (user.status !== "PENDING_INVITE") {
+      throw new ConflictException("Only a pending invitation can be resent.");
+    }
+
+    const previousInvitation = await this.prisma.invitation.findFirst({
+      where: { organizationId: actor.organizationId, email: user.email },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!previousInvitation) throw new NotFoundException("No invitation found to resend.");
+
+    await this.prisma.invitation.updateMany({
+      where: { organizationId: actor.organizationId, email: user.email, status: "PENDING" },
+      data: { status: "REVOKED" },
+    });
+
+    const rawToken = generateOpaqueToken();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = addTtl(new Date(), INVITATION_TTL);
+
+    const invitation = await this.prisma.invitation.create({
+      data: {
+        organizationId: actor.organizationId,
+        email: user.email,
+        roleId: previousInvitation.roleId,
+        departmentId: previousInvitation.departmentId,
+        teamId: previousInvitation.teamId,
+        tokenHash,
+        invitedByUserId: actor.sub,
+        expiresAt,
+      },
+    });
+
+    const [org, inviter] = await Promise.all([
+      this.prisma.organization.findUniqueOrThrow({ where: { id: actor.organizationId } }),
+      this.prisma.user.findUnique({ where: { id: actor.sub } }),
+    ]);
+
+    const acceptUrl = `${this.appConfig.frontendUrl}/register?token=${rawToken}`;
+    const { subject, html, text } = invitationEmail({
+      recipientEmail: user.email,
+      organizationName: org.name,
+      invitedByName: inviter ? `${inviter.firstName} ${inviter.lastName}` : "An admin",
+      acceptUrl,
+      expiresAt,
+    });
+    await this.mailerService.send({ to: user.email, subject, html, text });
+
+    await this.auditService.log({
+      organizationId: actor.organizationId,
+      actorUserId: actor.sub,
+      action: AUDIT_ACTIONS.USER_REINVITED,
+      entityType: "User",
+      entityId: user.id,
+      metadata: { email: user.email },
+    });
+
+    return { id: user.id, email: user.email, status: user.status, invitationId: invitation.id };
+  }
+
   async getInvitationPreview(rawToken: string): Promise<InvitationPreview> {
     const invitation = await this.findValidInvitationOrThrow(rawToken);
     const [org, inviter] = await Promise.all([

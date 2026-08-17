@@ -21,7 +21,7 @@ Role ──< UserRole >── User, scoped by organizationId   (assignment, sour
 
 At login/refresh, `UserRole` is resolved once into a `roles: string[]` array embedded in the JWT access token. `RolesGuard` checks that array directly — no DB hit per request. The database stays authoritative (a role change takes effect on the user's next login or token refresh, not instantly on every open tab); this tradeoff is documented, not accidental.
 
-`RolePermission` is seeded (SUPER_ADMIN/ADMIN get every seeded permission key) but there's no API to edit it yet — fine-grained permission editing beyond the four role names is a later-phase concern. Phase 1 authorization is entirely role-name-based (`@Roles('ADMIN', 'MANAGER')`), not permission-key-based.
+`RolePermission` is seeded (SUPER_ADMIN/ADMIN get every seeded permission key) and, as of Phase 7, has a real write API — `PATCH /roles/:id/permissions` (`RolesService.updateRolePermissions()`, SUPER_ADMIN-only) replaces a role's full permission set in a transaction. **This does not change how authorization works**: every guard in the app is still entirely role-name-based (`@Roles('ADMIN', 'MANAGER')`), not permission-key-based — editing `RolePermission` persists real, audited data but doesn't gate any endpoint. Wiring a permission-aware guard is future work, not part of Phase 7.
 
 ## Full CRUD (Phase 1 + 2)
 
@@ -34,6 +34,8 @@ As of Phase 3: `Event`, `EventParticipant`, `Reminder` — full CRUD/RSVP/remind
 As of Phase 4: `NotificationPreference` — `GET`/`PATCH /notifications/preferences`, backed by `NotificationsService.getPreferences()`/`updatePreferences()`. Only rows with `channel = PUSH` are ever queried by the enforcement path (`isPushEnabled()`) — `EMAIL`/`IN_APP` rows can be written via the API for schema completeness but nothing reads them yet; see NOTIFICATIONS.md's "Preference enforcement scope."
 
 As of Phase 5: `Conversation`, `ConversationMember`, `Message` — full conversation/message CRUD plus the WebSocket gateway described in CHAT.md. One schema change: `Message.mentionedUserIds String[] @default([])` (migration `message_mentions`), added for the identical reason and in the identical shape as `TaskComment.mentionedUserIds` below — explicit picker-selected mentions, not text-parsed. `MessageAttachment` remains schema-only (see CHAT.md's known simplifications — no chat attachment upload UI yet).
+
+As of Phase 7: `Announcement` (new model, migration `announcements`) — org-wide broadcast create/list/soft-delete, gated `SUPER_ADMIN`/`ADMIN` for create. No audience/team scoping (every org member sees every announcement) — a known simplification, not a partial implementation. Creating one fans out a real `SYSTEM_NOTIFICATION` to every other active org member via the existing `NotificationsService.createMany()` pipeline.
 
 ## Schema-only (correct DDL, no business logic yet)
 
