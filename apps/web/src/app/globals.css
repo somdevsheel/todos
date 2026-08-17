@@ -1,0 +1,51 @@
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* Neutral scale */
+  --color-surface: #ffffff;
+  --color-surface-subtle: #f7f7f8;
+  --color-border: #e5e5e8;
+  --color-ink: #17171a;
+  --color-ink-muted: #6b6b74;
+
+  /* Single accent — Arutech Workspace is not a Slack/Teams/Asana clone, so
+     it deliberately does not borrow their brand colors. */
+  --color-accent: #2f5d50;
+  --color-accent-strong: #234840;
+  --color-accent-soft: #e7efec;
+
+  --color-danger: #b3261e;
+  --color-warning: #9a6700;
+  --color-success: #1e6b45;
+}
+
+:root {
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-surface: #16171a;
+    --color-surface-subtle: #1d1e22;
+    --color-border: #2c2d32;
+    --color-ink: #f2f2f3;
+    --color-ink-muted: #9b9ba3;
+    --color-accent: #6fbfa8;
+    --color-accent-strong: #8fd3bf;
+    --color-accent-soft: #1d2b27;
+  }
+}
+
+body {
+  background: var(--color-surface-subtle);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+* {
+  border-color: var(--color-border);
+}

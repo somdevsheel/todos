@@ -1,0 +1,681 @@
+// Arutech Workspace — Prisma schema
+//
+// See DATABASE.md for the full narrative explanation of every model,
+// which tables are backed by real business logic in Phase 1 vs. which
+// exist as correct DDL awaiting later phases, and the RBAC design.
+//
+// Conventions used throughout:
+//   - String @id @default(uuid()) primary keys everywhere.
+//   - createdAt/updatedAt timestamps on every mutable table.
+//   - Nullable `deletedAt` for soft-delete on user-manageable content.
+//   - `organizationId` on every business entity except the global
+//     Role/Permission catalog — never hardcoded, always taken from the
+//     authenticated request's organization at the service layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Organizations
+// =============================================================================
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  slug      String    @unique
+  domain    String
+  logoUrl   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  users               User[]
+  departments         Department[]
+  teams               Team[]
+  invitations         Invitation[]
+  auditLogs           AuditLog[]
+  notifications       Notification[]
+  tasks               Task[]
+  events              Event[]
+  reminders           Reminder[]
+  conversations       Conversation[]
+  files               File[]
+  userRoles           UserRole[]
+
+  @@map("organizations")
+}
+
+// =============================================================================
+// RBAC — Role / Permission catalog + assignment
+// =============================================================================
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g. "SUPER_ADMIN", "ADMIN", "MANAGER", "EMPLOYEE"
+  description String?
+  isSystem    Boolean  @default(false) // seeded system roles cannot be deleted
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+  invitations     Invitation[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  key         String   @unique // e.g. "users:write", "audit:read"
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id               String   @id @default(uuid())
+  userId           String
+  roleId           String
+  organizationId   String
+  assignedByUserId String?
+  assignedAt       DateTime @default(now())
+
+  user           User         @relation("UserRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+  role           Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assignedByUser User?        @relation("UserRoleAssignedBy", fields: [assignedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, roleId, organizationId])
+  @@index([organizationId])
+  @@map("user_roles")
+}
+
+// =============================================================================
+// Users, invitations, sessions
+// =============================================================================
+
+enum UserStatus {
+  PENDING_INVITE
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+model User {
+  id             String     @id @default(uuid())
+  organizationId String
+  email          String
+  passwordHash   String? // null until invitation is accepted
+  firstName      String
+  lastName       String
+  avatarUrl      String?
+  phone          String?
+  status         UserStatus @default(PENDING_INVITE)
+  departmentId   String?
+  lastLoginAt    DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  userRoles            UserRole[]     @relation("UserRoleUser")
+  roleAssignmentsMade  UserRole[]     @relation("UserRoleAssignedBy")
+  sessions             Session[]
+  invitationsSent      Invitation[]   @relation("InvitationInvitedBy")
+  passwordResetTokens  PasswordResetToken[]
+  teamMemberships      TeamMember[]
+  auditLogsAsActor     AuditLog[]     @relation("AuditLogActor")
+  notifications        Notification[]
+  notificationPrefs    NotificationPreference[]
+  devices              UserDevice[]
+  filesUploaded        File[]         @relation("FileUploadedBy")
+  tasksCreated         Task[]         @relation("TaskCreatedBy")
+  taskAssignments      TaskAssignee[]
+  taskComments         TaskComment[]
+  eventsCreated        Event[]        @relation("EventCreatedBy")
+  eventParticipations  EventParticipant[]
+  reminders            Reminder[]
+  conversationsCreated Conversation[] @relation("ConversationCreatedBy")
+  conversationMemberships ConversationMember[]
+  messagesSent         Message[]
+
+  // Email is unique per organization, not globally — keeps the schema
+  // genuinely multi-org-ready without hardcoding "there is only one org".
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@index([organizationId, status])
+  @@map("users")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  email          String
+  roleId         String
+  departmentId   String?
+  teamId         String?
+  tokenHash      String           @unique
+  status         InvitationStatus @default(PENDING)
+  invitedByUserId String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role          Role         @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  department    Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  team          Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  invitedByUser User         @relation("InvitationInvitedBy", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status])
+  @@index([email])
+  @@map("invitations")
+}
+
+model Session {
+  id               String    @id @default(uuid())
+  userId           String
+  refreshTokenHash String    @unique
+  userAgent        String?
+  ipAddress        String?
+  deviceId         String?
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device UserDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, revokedAt])
+  @@map("sessions")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// =============================================================================
+// Departments, teams
+// =============================================================================
+
+model Department {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  users        User[]
+  teams        Team[]
+  invitations  Invitation[]
+  tasks        Task[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+model Team {
+  id             String    @id @default(uuid())
+  organizationId String
+  departmentId   String?
+  name           String
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  members      TeamMember[]
+  invitations  Invitation[]
+  tasks        Task[]
+  events       Event[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("teams")
+}
+
+model TeamMember {
+  id       String   @id @default(uuid())
+  teamId   String
+  userId   String
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([userId])
+  @@map("team_members")
+}
+
+// =============================================================================
+// Audit log
+// =============================================================================
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  actorUserId    String?
+  action         String // see @arutech/shared-types AUDIT_ACTIONS — deliberately not a Postgres enum
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("AuditLogActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// =============================================================================
+// Notifications & devices (schema + minimal read/mark-read CRUD in Phase 1;
+// no producer is wired yet — see NOTIFICATIONS.md and FCM.md)
+// =============================================================================
+
+enum NotificationChannel {
+  EMAIL
+  PUSH
+  IN_APP
+}
+
+model Notification {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String
+  type           String
+  title          String
+  body           String
+  data           Json?
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id       String              @id @default(uuid())
+  userId   String
+  channel  NotificationChannel
+  category String
+  enabled  Boolean             @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, channel, category])
+  @@map("notification_preferences")
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
+
+model UserDevice {
+  id          String         @id @default(uuid())
+  userId      String
+  deviceToken String         @unique
+  platform    DevicePlatform
+  deviceName  String?
+  appVersion  String?
+  lastSeenAt  DateTime       @default(now())
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@index([userId])
+  @@map("user_devices")
+}
+
+// =============================================================================
+// Files (schema-only in Phase 1 — object storage integration is Phase 2+)
+// =============================================================================
+
+model File {
+  id               String    @id @default(uuid())
+  organizationId   String
+  uploadedByUserId String
+  filename         String
+  mimeType         String
+  sizeBytes        Int
+  storageKey       String
+  url              String?
+  createdAt        DateTime  @default(now())
+  deletedAt        DateTime?
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedByUser User        @relation("FileUploadedBy", fields: [uploadedByUserId], references: [id], onDelete: Restrict)
+
+  taskAttachments    TaskAttachment[]
+  messageAttachments MessageAttachment[]
+
+  @@index([organizationId])
+  @@map("files")
+}
+
+// =============================================================================
+// Tasks (schema-only in Phase 1 — full business logic is Phase 2)
+// =============================================================================
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Task {
+  id             String       @id @default(uuid())
+  organizationId String
+  title          String
+  description    String?
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  startDate      DateTime?
+  dueDate        DateTime?
+  createdByUserId String
+  teamId         String?
+  departmentId   String?
+  parentTaskId   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  completedAt    DateTime?
+  deletedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User        @relation("TaskCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  team         Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  parentTask   Task?        @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks     Task[]       @relation("TaskSubtasks")
+
+  assignees   TaskAssignee[]
+  comments    TaskComment[]
+  attachments TaskAttachment[]
+  reminders   Reminder[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, dueDate])
+  @@map("tasks")
+}
+
+model TaskAssignee {
+  id         String   @id @default(uuid())
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
+}
+
+model TaskComment {
+  id             String    @id @default(uuid())
+  taskId         String
+  authorUserId   String
+  body           String
+  // Explicit picker-selected @mentions (user ids), never parsed from free
+  // text — see task-comments/dto/create-task-comment.dto.ts. A plain
+  // Postgres text array, not a join table: mentions are a property of the
+  // comment's content at creation time, not a relation that needs its own
+  // lifecycle (no "mention read/unread" state beyond the Notification row
+  // it produces).
+  mentionedUserIds String[] @default([])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorUser User @relation(fields: [authorUserId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+model TaskAttachment {
+  id        String   @id @default(uuid())
+  taskId    String
+  fileId    String
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  file File @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, fileId])
+  @@map("task_attachments")
+}
+
+// =============================================================================
+// Events / calendar (schema-only in Phase 1 — full business logic is Phase 3)
+// =============================================================================
+
+enum EventRsvpStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  TENTATIVE
+}
+
+model Event {
+  id              String    @id @default(uuid())
+  organizationId  String
+  createdByUserId String
+  teamId          String?
+  title           String
+  description     String?
+  startAt         DateTime
+  endAt           DateTime
+  isAllDay        Boolean   @default(false)
+  location        String?
+  meetingUrl      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User         @relation("EventCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  team          Team?        @relation(fields: [teamId], references: [id], onDelete: SetNull)
+
+  participants EventParticipant[]
+  reminders    Reminder[]
+
+  @@index([organizationId, startAt])
+  @@map("events")
+}
+
+model EventParticipant {
+  id          String          @id @default(uuid())
+  eventId     String
+  userId      String
+  rsvpStatus  EventRsvpStatus @default(PENDING)
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+  @@map("event_participants")
+}
+
+// =============================================================================
+// Reminders (schema-only in Phase 1 — reminder worker is Phase 3)
+// =============================================================================
+
+model Reminder {
+  id                String   @id @default(uuid())
+  organizationId    String
+  userId            String
+  relatedEntityType String // "TASK" | "EVENT"
+  relatedEntityId   String
+  taskId            String?
+  eventId           String?
+  remindAt          DateTime
+  message           String?
+  isSent            Boolean  @default(false)
+  sentAt            DateTime?
+  createdAt         DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Idempotency: the reminder worker (Phase 3) must never send the same
+  // reminder twice on retry — isSent + a unique constraint on the pairing
+  // of (userId, relatedEntityType, relatedEntityId, remindAt) makes a
+  // duplicate insert impossible even under concurrent job execution.
+  @@unique([userId, relatedEntityType, relatedEntityId, remindAt])
+  @@index([remindAt, isSent])
+  @@map("reminders")
+}
+
+// =============================================================================
+// Chat (schema-only in Phase 1 — WebSocket gateway is Phase 5)
+// =============================================================================
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+model Conversation {
+  id              String            @id @default(uuid())
+  organizationId  String
+  type            ConversationType
+  name            String?
+  createdByUserId String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User         @relation("ConversationCreatedBy", fields: [createdByUserId], references: [id], onDelete: Restrict)
+
+  members  ConversationMember[]
+  messages Message[]
+
+  @@index([organizationId])
+  @@map("conversations")
+}
+
+model ConversationMember {
+  id             String    @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime  @default(now())
+  lastReadAt     DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@map("conversation_members")
+}
+
+model Message {
+  id             String    @id @default(uuid())
+  conversationId String
+  senderUserId   String
+  body           String
+  editedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUser   User         @relation(fields: [senderUserId], references: [id], onDelete: Cascade)
+
+  attachments MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@map("messages")
+}
+
+model MessageAttachment {
+  id        String @id @default(uuid())
+  messageId String
+  fileId    String
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file    File    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, fileId])
+  @@map("message_attachments")
+}

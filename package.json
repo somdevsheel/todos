@@ -1,0 +1,26 @@
+{
+  "name": "arutech-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Arutech Workspace — internal collaboration platform for Arutech Consultancy Services LLP",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.18.0"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev:api": "pnpm --filter @arutech/api start:dev",
+    "dev:web": "pnpm --filter @arutech/web dev",
+    "dev:mobile": "pnpm --filter @arutech/mobile start",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "docker:dev:up": "docker compose -f docker/docker-compose.dev.yml -p arutech-workspace up -d",
+    "docker:dev:down": "docker compose -f docker/docker-compose.dev.yml -p arutech-workspace down",
+    "docker:dev:logs": "docker compose -f docker/docker-compose.dev.yml -p arutech-workspace logs -f",
+    "prisma:generate": "pnpm --filter @arutech/api prisma:generate",
+    "prisma:migrate": "pnpm --filter @arutech/api prisma:migrate",
+    "prisma:seed": "pnpm --filter @arutech/api prisma:seed",
+    "prisma:studio": "pnpm --filter @arutech/api prisma:studio"
+  }
+}

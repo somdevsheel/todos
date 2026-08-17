@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "Arutech Workspace",
+    "slug": "arutech-workspace",
+    "scheme": "arutechworkspace",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.arutechconsultancy.workspace",
+      "adaptiveIcon": {
+        "backgroundColor": "#2F5D50"
+      }
+    },
+    "plugins": []
+  }
+}

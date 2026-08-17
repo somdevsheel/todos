@@ -1,0 +1,32 @@
+# Root .dockerignore — applies to every `docker build` in this repo,
+# regardless of which Dockerfile/stage. This is what stops COPY
+# instructions from pulling in host-generated artifacts (most importantly
+# node_modules — its pnpm symlinks are hashed against the HOST's
+# Node/pnpm resolution and silently break module resolution when copied
+# into a container with different exact versions) that should instead be
+# freshly installed/built inside the image itself.
+
+**/node_modules
+**/dist
+**/.next
+**/coverage
+**/.turbo
+**/.expo
+**/.expo-shared
+
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+**/*.tsbuildinfo
+
+.vscode
+.idea
+
+apps/mobile/android
+apps/mobile/ios
+
+# local-disk file storage (dev only)
+apps/api/uploads

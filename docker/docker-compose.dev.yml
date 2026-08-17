@@ -1,0 +1,66 @@
+# Arutech Workspace — local development stack only.
+#
+# Deliberately isolated from any other application that may already be
+# running on this machine or on the target host:
+#   - project name is fixed to "arutech-workspace" (pass -p arutech-workspace,
+#     or use `pnpm docker:dev:up` which already does this)
+#   - container names are prefixed "arutech-workspace-"
+#   - host ports are non-default (55432 / 63790 / 10250 / 8025) so they don't
+#     collide with a Postgres/Redis/mail service already bound to the
+#     standard ports elsewhere on the host
+#   - all state lives in named volumes scoped to this compose project
+#
+# This file is for LOCAL DEVELOPMENT ONLY. See DEPLOYMENT.md and LIGHTSAIL.md
+# for the (not-yet-applied) production plan, which uses its own isolated
+# compose project on the shared Lightsail host.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arutech-workspace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: arutech
+      POSTGRES_PASSWORD: arutech_dev_password
+      POSTGRES_DB: arutech_workspace
+    ports:
+      - "55432:5432"
+    volumes:
+      - arutech-workspace-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arutech -d arutech_workspace"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: arutech-workspace-redis
+    restart: unless-stopped
+    ports:
+      - "63790:6379"
+    volumes:
+      - arutech-workspace-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Local SMTP catcher for the invitation / password-reset email flow.
+  # Web UI at http://localhost:8095, SMTP on 10250 (see .env.example).
+  # NOTE: 8025 (MailHog's usual UI port) is already bound by another
+  # project on this host (streamsphere-mailhog) — 8095 avoids the clash.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: arutech-workspace-mailhog
+    restart: unless-stopped
+    ports:
+      - "10250:1025"
+      - "8095:8025"
+
+volumes:
+  arutech-workspace-postgres-data:
+    name: arutech-workspace-postgres-data
+  arutech-workspace-redis-data:
+    name: arutech-workspace-redis-data

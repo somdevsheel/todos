@@ -1,0 +1,22 @@
+{
+  // NOTE: `incremental: true` (inherited from tsconfig.json) means tsc
+  // trusts tsconfig.build.tsbuildinfo over the actual filesystem state —
+  // if `dist/` is ever deleted by hand (or by a script) without also
+  // deleting that file, the next `nest build`/`tsc` run silently emits
+  // NOTHING and exits 0, because as far as its cache is concerned nothing
+  // changed since the last successful build. Use `pnpm clean` (removes
+  // both together) instead of `rm -rf dist` on its own.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src"
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "prisma",
+    "**/*spec.ts",
+    "src/auth/auth.test-utils.ts",
+    "src/auth/test-types.ts"
+  ]
+}
