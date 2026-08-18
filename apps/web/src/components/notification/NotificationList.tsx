@@ -39,7 +39,7 @@ export function NotificationList({ initialItems }: { initialItems: NotificationI
   const unreadCount = items.filter((item) => !item.isRead).length;
 
   if (items.length === 0) {
-    return <EmptyState icon={BellOff} title="No notifications yet" description="You'll see task, event, and chat notifications here as later phases ship." />;
+    return <EmptyState icon={BellOff} title="No notifications yet" description="Task assignments, event invites, and chat mentions will show up here." />;
   }
 
   return (

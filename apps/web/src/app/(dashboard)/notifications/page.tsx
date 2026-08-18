@@ -10,7 +10,7 @@ export default async function NotificationsPage() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold text-[var(--color-ink)]">Notifications</h1>
-        <p className="text-sm text-[var(--color-ink-muted)]">Task, event, and chat notifications will populate this list as later phases ship.</p>
+        <p className="text-sm text-[var(--color-ink-muted)]">Task, event, and chat activity that involves you shows up here.</p>
       </div>
       <NotificationList initialItems={items} />
     </div>
