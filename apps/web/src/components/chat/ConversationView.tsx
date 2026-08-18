@@ -125,13 +125,14 @@ export function ConversationView({ conversation, initialMessages, currentUserId 
       <MessageComposer
         conversationId={conversation.id}
         onSent={(message) => setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]))}
-        // Pointless for a DIRECT thread (there's only one other person —
-        // trivial to just pick them individually) and reserved for GROUP
-        // conversations with actually more than one other member.
+        // Pointless for a DIRECT thread specifically — a DIRECT conversation
+        // is always exactly {you, one other person} by construction (see
+        // CreateConversationDto), so there's nothing "everyone" adds over
+        // just picking that one person. Shown for every GROUP regardless of
+        // size, even a 2-person one, for a consistent mental model rather
+        // than a size threshold that's surprising to hit.
         mentionAllOption={
-          conversation.type === "GROUP" && conversation.participants.length > 2
-            ? { participants: conversation.participants, currentUserId }
-            : undefined
+          conversation.type === "GROUP" ? { participants: conversation.participants, currentUserId } : undefined
         }
       />
     </div>
