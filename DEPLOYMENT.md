@@ -1,6 +1,23 @@
 # Deployment
 
-**Status: infrastructure-as-code complete and locally verified; not deployed anywhere real.** Nothing in this repo has touched `api.arutechconsultancy.com`, `workspace.arutechconsultancy.com`, or the real AWS Lightsail server. Every artifact below has been built and verified as far as this environment honestly allows — real Docker builds, a real production-mode boot, real database migrations, a real backup/restore cycle — but going live still needs a human with actual Lightsail SSH access, a Vercel account, and DNS control. This document is the accurate record of exactly which half of that is done.
+**Status: live deployment in progress.** A real, dedicated AWS Lightsail instance exists (`arutech-workspace`, Mumbai/`ap-south-1a`, Ubuntu, public IP `43.205.207.204`) and the runbook below is being walked against it for real — not simulated. Every artifact this repo ships has also been built and verified as far as an automated environment honestly allows — real Docker builds, a real production-mode boot, real database migrations, a real backup/restore cycle, a real S3 upload/download/delete round trip through the live app. Track exactly how far the real rollout has gotten in the runbook's checkboxes, updated as each step is actually completed, not planned.
+
+## Step-by-step deployment runbook
+
+Real progress, tracked honestly — check a box only once that exact step has actually been done against the real server, not when it's merely planned. Update this list as you go.
+
+- [x] **Provision the Lightsail instance.** Done — `arutech-workspace`, Ubuntu, 1GB RAM/2vCPU/40GB SSD, `ap-south-1a` (matches the S3 bucket's region — keeps API↔storage traffic in-region). Public IPv4: `43.205.207.204`.
+- [x] **Add swap space** (1GB RAM is tight for Postgres+Redis+API+NGINX+Docker daemon all on one box together — see the reasoning in this repo's own history, or just: don't skip this). Done — 2GB swapfile, confirmed via `free -h`.
+- [x] **DNS**: `A` record, `api.arutechconsultancy.com` → `43.205.207.204`, TTL 14400. Added; propagation is independent of the rest of this list, doesn't block it.
+- [x] **Pre-deployment checklist** (see [LIGHTSAIL.md](./LIGHTSAIL.md)) — simplified in practice because this is a fresh, dedicated instance, not a shared host: confirmed via `docker ps -a` (Docker not yet installed), `ss -tlnp` (only port 22 listening), `df -h`/`nproc` (35G free, 2 vCPUs) that there's nothing pre-existing to collide with.
+- [x] **Install Docker** (`docker-ce` — the official repo's package, not the older `docker.io` apt package, specifically for the `docker compose` plugin subcommand) + `git`. Done, `docker-ce` 29.7.2, clean install.
+- [x] **Clone the repo** to `/opt/arutech-workspace`. Done — `docker/docker-compose.prod.yml` and `docker/nginx/` both present, confirming `main` was fully pushed before cloning (see the earlier commit `2aed9fa`).
+- [ ] **Write the real `.env.production`** on the server (copy `.env.production.example`'s shape, fill in real generated JWT secrets, the real Postgres password, the working S3 credentials already verified locally, real SMTP). Never copied from a local machine over an insecure channel — typed/generated directly on the server or pasted over SSH.
+- [ ] **`docker compose -f docker/docker-compose.prod.yml -p arutech-workspace build`** then **`... up -d`**.
+- [ ] **`docker compose ... exec api node_modules/.bin/prisma migrate deploy`** (not `pnpm prisma:deploy` — see the note below, discovered by actually running it).
+- [ ] **Install NGINX + certbot**, adapt `docker/nginx/api.arutechconsultancy.com.conf.template` to the real host (there's nothing else on this host to avoid colliding with, but still read the template's own caveats — the `map $http_upgrade` directive needs to live in the host's `http{}` block), issue a real TLS cert.
+- [ ] **Verify**: `curl https://api.arutechconsultancy.com/api/v1/health` returns a real 200 from outside the host.
+- [ ] **Vercel**: create the project, connect this repo, set `API_INTERNAL_URL`/`NEXT_PUBLIC_API_URL` to the real `https://api.arutechconsultancy.com/api/v1`, attach `workspace.arutechconsultancy.com` (see [VERCEL.md](./VERCEL.md) — unstarted as of this checklist).
 
 ## Target architecture
 
@@ -28,8 +45,9 @@ See the diagram in [ARCHITECTURE.md](./ARCHITECTURE.md). Summary: `apps/web` dep
 
 ## What's still human-gated
 
-- **`LIGHTSAIL.md`'s pre-deployment checklist** — 100% unstarted. No real server has been inspected, and nothing above should be applied to one until it has been.
-- **A Vercel project** — see [VERCEL.md](./VERCEL.md), unchanged by this phase.
+Track exact progress in the runbook above — this is the remaining list, not a status snapshot frozen at "not started":
+
+- The remaining unchecked runbook steps above (Docker install through the real `https://api...` health check).
+- **A Vercel project** for `workspace.arutechconsultancy.com` — see [VERCEL.md](./VERCEL.md), unstarted.
 - **A real Firebase project** — unrelated to this phase specifically; has been the one open FCM gap since Phase 4 (see [FCM.md](./FCM.md)).
-- **DNS** for `api.arutechconsultancy.com` and `workspace.arutechconsultancy.com`.
-- **3 GitHub repo secrets** (`LIGHTSAIL_HOST`/`LIGHTSAIL_USER`/`LIGHTSAIL_SSH_KEY`) if `deploy.yml` is ever meant to actually run.
+- **3 GitHub repo secrets** (`LIGHTSAIL_HOST`/`LIGHTSAIL_USER`/`LIGHTSAIL_SSH_KEY`) if `deploy.yml` is ever meant to actually run instead of deploying by hand over SSH.

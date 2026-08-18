@@ -55,6 +55,14 @@ COPY --from=deps /workspace ./
 COPY tsconfig.base.json ./
 COPY packages/shared-types packages/shared-types
 COPY apps/api apps/api
+# nest build's TypeScript compilation is memory-hungry enough to OOM on a
+# small host (confirmed: crashed with "JavaScript heap out of memory" on a
+# 1GB-RAM Lightsail instance, even with 2GB of swap configured — V8 sizes
+# its default heap ceiling off detected physical RAM, not swap, so the
+# crash happens before swap ever gets used). NODE_OPTIONS here, not in the
+# runtime stage below — only the build step needs the larger ceiling, the
+# actual running server doesn't.
+ENV NODE_OPTIONS=--max-old-space-size=2048
 RUN pnpm --filter @arutech/shared-types build \
  && pnpm --filter @arutech/api prisma:generate \
  && pnpm --filter @arutech/api build \
