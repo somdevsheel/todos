@@ -9,7 +9,8 @@
     "android": "expo start --android",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --fix",
-    "test": "echo \"(mobile) no automated tests yet — verified via tsc + expo export, see ANDROID.md\" && exit 0"
+    "test": "echo \"(mobile) no automated tests yet — verified via tsc + expo export, see ANDROID.md\" && exit 0",
+    "eas-build-post-install": "cd ../.. && pnpm --filter @arutech/shared-types build"
   },
   "dependencies": {
     "@arutech/shared-types": "workspace:*",

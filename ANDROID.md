@@ -57,11 +57,20 @@ is real signal, but it isn't the same as watching it run.
   `Notifications.getDevicePushTokenAsync()` (the raw FCM registration
   token — not `getExpoPushTokenAsync()`'s Expo-relay format, since
   `FcmService` server-side calls `firebase-admin` directly), then registers
-  it via the existing `POST /user-devices`. This **will fail** without a
-  real Firebase project (`google-services.json` referenced in `app.json`)
-  — none exists yet, see FCM.md — and is written to fail closed (logged,
-  not thrown), the same "unconfigured is a supported state" philosophy
-  `FcmService` already uses server-side.
+  it via the existing `POST /user-devices`. Written to fail closed (logged,
+  not thrown) if it can't get a token — the same "unconfigured is a
+  supported state" philosophy `FcmService` already uses server-side. As of
+  the "Real device build" section below, a real Firebase project *does*
+  exist (`arutech-workspace`, same one FCM.md's server-side setup uses) —
+  this path is no longer expected to fail closed on a real build, though
+  that's not yet confirmed on an actual device (see that section's status).
+  `apps/mobile/google-services.json` (the Android app's registration in
+  that Firebase project) is **gitignored**, not committed — same
+  every-credential-cautious treatment as everything else in this repo, even
+  though its `api_key` is technically safe to ship inside a compiled APK by
+  design. Get a fresh copy from Firebase Console → Project Settings → Your
+  apps → the Android app (package `com.arutechconsultancy.workspace`) →
+  download `google-services.json` → place at `apps/mobile/google-services.json`.
 - A notification-response listener resolves `{type, taskId|eventId|
   conversationId}` (the exact payload `FcmService` sends) into an Expo
   Router path.
@@ -100,6 +109,30 @@ is real signal, but it isn't the same as watching it run.
   confirmed directly against the installed package source, and by
   `expo export`'s own log line ("Using src/app as the root directory for
   Expo Router").
+
+## Real device build (EAS Build) — in progress
+
+Unlike everything above (verified only via `tsc`/lint/`expo export`, no
+device), this is an attempt at an actual installable APK via Expo's cloud
+build service, tied to the same real `arutech-workspace` Firebase project
+already wired server-side (see FCM.md) — plus the app's own Android
+registration in that project (`apps/mobile/google-services.json`,
+`app.json`'s `android.googleServicesFile`), a separate step from the
+server-side Admin SDK credentials.
+
+**Real bug found and fixed**: the first `eas build --platform android
+--profile preview` attempt failed at the "Bundle JavaScript" phase with no
+further detail in the CLI. Root cause: identical to a bug hit the same
+session on Vercel (see DEPLOYMENT.md) — `@arutech/shared-types` compiles to
+`dist/` (gitignored, never committed; `main`/`types` in its `package.json`
+point there), and EAS Build's clean environment has no reason to know it
+needs building before Metro tries to bundle the mobile app, which imports
+from it throughout. Fixed with an `eas-build-post-install` script in
+`apps/mobile/package.json` — EAS Build auto-runs this hook (if present)
+after `pnpm install`, before the actual build/bundle steps:
+```json
+"eas-build-post-install": "cd ../.. && pnpm --filter @arutech/shared-types build"
+```
 
 ## Running it
 
