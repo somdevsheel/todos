@@ -30,6 +30,22 @@ interface ApiFetchOptions extends RequestInit {
  */
 export async function apiFetch<T>(path: string, options: ApiFetchOptions = {}): Promise<T> {
   const res = await rawApiFetch(path, options);
+
+  // 204 No Content (logout, logout-all, forgot-password, reset-password —
+  // see auth.controller.ts) has no body to parse at all, by HTTP spec — a
+  // genuinely successful empty response, not a failure. Checked before
+  // attempting .json() below: without this, res.json() throws on the empty
+  // body, gets silently caught into `body = null`, and a *successful* 204
+  // was being treated as a failure — which callers then wrapped into
+  // NextResponse.json(errorBody, {status: 204}), itself invalid (a 204
+  // response must not carry a body), producing a real unhandled 500. Found
+  // live: a real password reset was succeeding on the backend every time
+  // while the frontend reported failure.
+  if (res.status === 204) {
+    if (!res.ok) throw new ApiClientError(API_ERROR_CODES.INTERNAL_ERROR, "Something went wrong. Please try again.", res.status);
+    return undefined as T;
+  }
+
   const body = (await res.json().catch(() => null)) as ApiResult<T> | null;
 
   if (!res.ok || !body || !body.success) {

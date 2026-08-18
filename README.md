@@ -119,3 +119,11 @@ pnpm --filter @arutech/web test        # frontend unit tests
 ## A note on scope
 
 This is deliberately **not** a finished product in one specific sense: it has never touched a real server, domain, or app-store listing. Everything *buildable from this repo* is real and complete across all 8 phases — no fake implementations, no unstarted stubs standing in for real work. What's left is exclusively the handful of steps that require a human with actual account access, named explicitly rather than glossed over: Phase 4's FCM *code* is real and tested, but sending an actual push requires a Firebase project only a human can create (see FCM.md); Phase 6's Android app is real and code-complete (`tsc`, ESLint, and a genuine Metro bundle export all pass) but has never run on an emulator or device, since none exists in this environment (see ANDROID.md) — a compile-and-bundle check is real signal, but it isn't the same claim as "I watched it work." Phase 7's admin tooling is real and live-verified end-to-end, with one honest caveat of its own: role-permission editing persists real, audited data but doesn't gate any endpoint yet, since every guard in the app is still role-name-based, not permission-key-based (see DATABASE.md). Phase 8's production infrastructure is real, locally verified, and now being deployed for real: a genuine Docker build booted in production mode, migrated a real database, and passed a real health check; file storage was verified against a real AWS S3 bucket, not just mocks; a backup was taken and restored into a scratch database with every row count checked; and a real, dedicated AWS Lightsail instance now exists with the deployment runbook actively in progress against it (see DEPLOYMENT.md for exactly how far). What's still outstanding is a Vercel project and a real Firebase project for FCM — both require credentials only a human can provision.
+
+
+```
+git add .
+git commit -m "fix"
+git push origin main
+
+```
