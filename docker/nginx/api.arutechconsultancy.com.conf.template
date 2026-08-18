@@ -41,9 +41,14 @@ server {
 }
 
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
+    # `http2` as a listen-directive modifier, not the standalone `http2 on;`
+    # directive — the latter only works on NGINX 1.25.1+, but Ubuntu 22.04's
+    # default `apt install nginx` ships 1.18.0, which doesn't recognize it
+    # at all ("unknown directive"). The combined syntax below works on both
+    # old and new NGINX (deprecated-but-supported on newer ones), so it's
+    # the portable choice here rather than assuming a specific version.
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name api.arutechconsultancy.com;
 
     # Adjust to the real cert paths on the host (e.g. Let's Encrypt via certbot).
