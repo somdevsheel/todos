@@ -9,7 +9,14 @@ import { useChatSocket } from "./SocketProvider";
 
 const TYPING_STOP_DELAY_MS = 2000;
 
-export function MessageComposer({ conversationId, onSent }: { conversationId: string; onSent: (message: MessageSummary) => void }) {
+export interface MessageComposerProps {
+  conversationId: string;
+  onSent: (message: MessageSummary) => void;
+  /** Only passed for GROUP conversations with >2 people — see the "Mention everyone" button below; pointless for a DIRECT thread where there's only one other person to begin with. */
+  mentionAllOption?: { participants: AssigneeOption[]; currentUserId: string };
+}
+
+export function MessageComposer({ conversationId, onSent, mentionAllOption }: MessageComposerProps) {
   const [body, setBody] = useState("");
   const [mentions, setMentions] = useState<AssigneeOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -82,6 +89,18 @@ export function MessageComposer({ conversationId, onSent }: { conversationId: st
         <div className="flex-1">
           <AssigneePicker selected={mentions} onChange={setMentions} placeholder="Mention someone…" />
         </div>
+        {mentionAllOption && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setMentions(mentionAllOption.participants.filter((p) => p.id !== mentionAllOption.currentUserId));
+            }}
+          >
+            Mention everyone
+          </Button>
+        )}
         <Button size="sm" onClick={submit} loading={submitting} disabled={!body.trim()}>
           Send
         </Button>

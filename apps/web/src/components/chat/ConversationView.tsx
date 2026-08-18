@@ -125,6 +125,14 @@ export function ConversationView({ conversation, initialMessages, currentUserId 
       <MessageComposer
         conversationId={conversation.id}
         onSent={(message) => setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]))}
+        // Pointless for a DIRECT thread (there's only one other person —
+        // trivial to just pick them individually) and reserved for GROUP
+        // conversations with actually more than one other member.
+        mentionAllOption={
+          conversation.type === "GROUP" && conversation.participants.length > 2
+            ? { participants: conversation.participants, currentUserId }
+            : undefined
+        }
       />
     </div>
   );
