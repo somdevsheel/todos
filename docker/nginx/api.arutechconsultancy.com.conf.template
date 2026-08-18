@@ -1,0 +1,98 @@
+# Arutech Workspace — NGINX server block TEMPLATE for api.arutechconsultancy.com
+#
+# ============================================================================
+# DO NOT drop this into /etc/nginx/sites-enabled/ blindly. Per LIGHTSAIL.md's
+# mandatory pre-deployment checklist (still 100% unstarted as of this file's
+# creation), the real host's existing NGINX config must be read in full
+# FIRST — this template doesn't know what else is already configured there,
+# and must be ADDED as a new server block alongside the existing app's,
+# never replacing anything. See LIGHTSAIL.md's "Hard rules".
+# ============================================================================
+#
+# Assumes:
+#   - The api container (docker-compose.prod.yml) is published to
+#     127.0.0.1:4000 on this host — loopback only, never a public port; this
+#     server block is the ONLY intended path in from the internet.
+#   - TLS certs already exist for api.arutechconsultancy.com (e.g. via
+#     certbot) at the paths referenced below — adjust to match reality.
+#   - The host's nginx.conf http{} block already defines (or this file's
+#     inclusion point defines) a WebSocket upgrade map:
+#       map $http_upgrade $connection_upgrade {
+#         default upgrade;
+#         ''      close;
+#       }
+#     This template can't know the shape of the real host's http{} block in
+#     advance, so it can't safely add that map itself — confirm it exists
+#     (or add it to the host's main nginx.conf, not here) before relying on
+#     $connection_upgrade below.
+#
+# One location block handles everything, not split REST/WebSocket blocks —
+# both /api/v1/* (REST) and /socket.io (chat.gateway.ts's WS path) hit the
+# same upstream:4000, and the Upgrade/Connection headers are harmless no-ops
+# on a plain HTTP request, so there's no reason to duplicate the proxy_*
+# directives across two locations.
+
+# HTTP -> HTTPS redirect
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.arutechconsultancy.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name api.arutechconsultancy.com;
+
+    # Adjust to the real cert paths on the host (e.g. Let's Encrypt via certbot).
+    ssl_certificate     /etc/letsencrypt/live/api.arutechconsultancy.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.arutechconsultancy.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Baseline security headers — mirrors apps/web/next.config.mjs's headers()
+    # (SECURITY.md), so both halves of the app carry the same posture. No
+    # CSP here either, same reasoning as the web app's: this is a JSON API +
+    # WebSocket endpoint with no HTML of its own to scope a policy around,
+    # and helmet() (main.ts) already covers the API process's own response
+    # headers — this just adds the couple that matter at the reverse-proxy
+    # layer too.
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # A hair above multer's HARD 25MB ceiling (FilesController's
+    # MULTER_MEMORY_CEILING_BYTES), not the softer configurable
+    # MAX_UPLOAD_SIZE_MB (default 10MB) — the hard multer limit is the real
+    # binding constraint regardless of what MAX_UPLOAD_SIZE_MB is set to,
+    # so NGINX must allow at least that much through before multer gets a
+    # chance to reject anything larger with a real error message instead of
+    # a generic 413 from NGINX itself.
+    client_max_body_size 26m;
+
+    location / {
+        proxy_pass http://127.0.0.1:4000;
+        proxy_http_version 1.1;
+
+        # WebSocket upgrade — needed for /socket.io (chat.gateway.ts) but
+        # harmless to apply unconditionally to every request under this
+        # single location block; see the map{} note above this server block.
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Long timeout — a chat WebSocket connection is meant to stay open
+        # far longer than a typical REST request; NGINX's default (60s)
+        # would silently kill idle-but-legitimate WS connections.
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}

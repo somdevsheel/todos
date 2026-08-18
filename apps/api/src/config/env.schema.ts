@@ -73,13 +73,37 @@ export const envSchema = z
         "application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ),
 
-    // Reserved for the future S3-compatible StorageProvider (STORAGE_PROVIDER=s3) — unused today.
+    // Consumed by files/storage/s3.storage.ts when STORAGE_PROVIDER=s3 —
+    // required in that case (checked below), unused/optional otherwise.
     STORAGE_ENDPOINT: z.string().optional(),
     STORAGE_BUCKET: z.string().optional(),
     STORAGE_ACCESS_KEY: z.string().optional(),
     STORAGE_SECRET_KEY: z.string().optional(),
+    // NOT in the required-when-s3 list below, unlike the four above — most
+    // S3-compatible servers ignore region entirely, so requiring it would
+    // break that legitimate case. S3StorageProvider logs a clear warning
+    // (not silence) when it's left unset — see its docstring for why real
+    // AWS S3 specifically needs this set correctly.
+    STORAGE_REGION: z.string().optional(),
   })
   .superRefine((env, ctx) => {
+    // Applies in every environment, not just production — an operator who
+    // sets STORAGE_PROVIDER=s3 without the four vars it needs should find
+    // out at boot, not on the first upload (same "fail loud at startup"
+    // principle as StorageModule/S3StorageProvider's own checks — this is
+    // the earliest of the three layers, not a replacement for the others).
+    if (env.STORAGE_PROVIDER === "s3") {
+      for (const key of ["STORAGE_ENDPOINT", "STORAGE_BUCKET", "STORAGE_ACCESS_KEY", "STORAGE_SECRET_KEY"] as const) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [key],
+            message: `${key} is required when STORAGE_PROVIDER=s3`,
+          });
+        }
+      }
+    }
+
     if (env.NODE_ENV !== "production") return;
 
     if (env.JWT_ACCESS_SECRET.length < 32) {
@@ -131,7 +155,6 @@ export function validateEnv(raw: Record<string, unknown>): EnvConfig {
     const formatted = result.error.issues
       .map((issue) => `  - ${issue.path.join(".") || "(root)"}: ${issue.message}`)
       .join("\n");
-    // eslint-disable-next-line no-console
     console.error(`\nInvalid environment configuration:\n${formatted}\n`);
     throw new Error("Environment validation failed. See errors above.");
   }

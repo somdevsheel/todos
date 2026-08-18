@@ -23,12 +23,12 @@ workspace.arutechconsultancy.com            |
                            v
                     AWS Lightsail
                            |
-        +------------------+------------------+
-        |                  |                  |
-        v                  v                  v
-     NestJS API        WebSocket           Worker
-        |                  |                  |
-        +------------------+------------------+
+                           v
+              NestJS API container
+        (REST + WebSocket gateway + BullMQ
+         reminder scheduler/worker — one
+         process, one container — see the
+         "Phase 8" section below for why)
                            |
                   +--------+--------+
                   |                 |
@@ -45,7 +45,7 @@ workspace.arutechconsultancy.com            |
                                  Android
 ```
 
-**What exists today (Phases 1–6):** the NestJS API (REST plus a real authenticated Socket.IO gateway — still one process, not yet split into its own `workspace-websocket` container, see Phase 8), PostgreSQL with the complete schema, a BullMQ-backed reminder worker running *inside* the same API process (see Phase 8), FCM push code with no live Firebase project behind it yet (see FCM.md), the Next.js web app with a full real-time chat UI, and an Expo/React Native Android app with real screens across auth/tasks/calendar/chat — code-complete and bundle-verified, but never run on an actual emulator/device in this environment (see ANDROID.md) — all running locally via `docker-compose.dev.yml`. Nothing here has been deployed to Lightsail, Vercel, or any live domain — see [DEPLOYMENT.md](./DEPLOYMENT.md), [LIGHTSAIL.md](./LIGHTSAIL.md), [VERCEL.md](./VERCEL.md).
+**What exists today (Phases 1–8):** the NestJS API (REST plus a real authenticated Socket.IO gateway plus a BullMQ-backed reminder scheduler/worker, all in one process — a deliberate Phase 8 decision, see below, not an unfinished split), PostgreSQL with the complete schema, FCM push code with no live Firebase project behind it yet (see FCM.md), the Next.js web app with a full real-time chat UI, an Expo/React Native Android app with real screens across auth/tasks/calendar/chat — code-complete and bundle-verified, but never run on an actual emulator/device in this environment (see ANDROID.md) — and a complete, locally-verified production Docker/CI deployment story (see below) — all running locally via `docker-compose.dev.yml`/`docker-compose.prod.yml`. Nothing here has been deployed to a real Lightsail host, Vercel, or any live domain yet — see [DEPLOYMENT.md](./DEPLOYMENT.md), [LIGHTSAIL.md](./LIGHTSAIL.md), [VERCEL.md](./VERCEL.md).
 
 ## Why a monorepo
 
@@ -83,7 +83,41 @@ JwtAuthGuard  →  RolesGuard  →  OrgScopeGuard
 | **5. Chat** | Conversations/channels, WebSocket gateway, typing/presence/read-receipts, @mentions, chat notifications (online → WS, offline → push, never both) | **Done** — full conversation/message CRUD, an authenticated Socket.IO gateway (ticket-based auth bridging the httpOnly-cookie session — see AUTHENTICATION.md), typing indicators, presence, read receipts that stay current while a thread is open, and @mentions via the same explicit-picker model as `TaskComment`. The online/push dedup rule is real, not aspirational — live-verified against the actual gateway, not just mocked unit tests (see CHAT.md's "Verification"). **Known simplifications:** no auto-provisioned org-wide default channel, presence/typing state is in-process (single-instance topology, same as Phase 3's reminder worker), no chat attachment upload UI yet. See [CHAT.md](./CHAT.md) |
 | **6. Android** | Real React Native screens (auth, tasks, events, chat), FCM, deep links, device registration/logout | **Code done, never run** — Expo Router navigation, secure-token auth with auto-refresh, task list/detail/create, agenda-style calendar with RSVP, real-time chat (same WebSocket ticket mechanism as web), FCM device registration, and deep-link resolution are all real. Verified via `tsc --noEmit`, ESLint, and a real `expo export --platform android` bundle build — **not** verified on an emulator/device, since none is available in this environment. **Known gaps:** no GROUP conversation creation, no month/week/day calendar views or native date-time picker, no task Kanban board, no @mention picker on mobile (plain text only). See [ANDROID.md](./ANDROID.md) |
 | **7. Admin** | Full employee/team/department management UI, announcements, richer audit-log UI, fine-grained permission editing | **Done** — real management UI for departments (`/admin/departments`), teams (`/teams`, `/teams/[id]` for member add/remove), and employees (`/employees/[id]` — profile, department, activate/deactivate, role assign/revoke, SUPER_ADMIN-only), a new `Announcement` model with org-wide broadcast creation that fans out a real `SYSTEM_NOTIFICATION` to every other org member, a paginated/filterable `/admin/audit-log` page (`action`/`entityType` dropdowns), and a `PermissionMatrix` UI backed by a new `PATCH /roles/:id/permissions` endpoint. All of it live-verified end-to-end against a running API: department/team/member creation, the announcement notification fan-out, role-permission edits persisting through `GET /roles`, and both audit-log filters returning correctly-scoped results. **Known simplification:** authorization everywhere is still 100% role-name-based (`@Roles('ADMIN')` against the JWT) — no guard reads `Permission`/`RolePermission`, so editing a role's permissions here persists real data but doesn't yet gate any endpoint; that wiring is future work, not part of this phase. See `apps/api/src/announcements/`, `apps/api/src/roles/roles.service.ts` |
-| **8. Production** | Docker for `workspace-worker`/`workspace-websocket`, Lightsail NGINX config, Vercel deployment, monitoring, backups | Not started — `docker/api.Dockerfile` + `docker-compose.dev.yml` exist for local/single-service use only; see [DEPLOYMENT.md](./DEPLOYMENT.md), [LIGHTSAIL.md](./LIGHTSAIL.md), [VERCEL.md](./VERCEL.md) |
+| **8. Production** | Docker for `workspace-worker`/`workspace-websocket`, Lightsail NGINX config, Vercel deployment, monitoring, backups | **Infrastructure-as-code complete and locally verified; live deployment not started.** Ships ONE container, not the `workspace-worker`/`workspace-websocket` split named at left — see "Phase 8: a named deviation" below for why. `docker-compose.prod.yml`, an NGINX config template, real GitHub Actions CI (build/lint/test/e2e/docker-build — genuinely runs, no cloud creds needed), a `deploy.yml` CD workflow (written, `workflow_dispatch`-only, has never successfully run — needs Lightsail secrets that don't exist), a real S3-compatible `StorageProvider` (tested against mocks, off by default), and backup/restore scripts (**run end-to-end against a real database this session** — backed up, restored into a scratch DB, every table's row count verified identical). What's still human-gated: `LIGHTSAIL.md`'s pre-deployment checklist (100% unstarted — no real server has been inspected), a Vercel project, a real Firebase project (FCM, unrelated to this phase — missing since Phase 4), and DNS. See [DEPLOYMENT.md](./DEPLOYMENT.md), [LIGHTSAIL.md](./LIGHTSAIL.md), [VERCEL.md](./VERCEL.md), [BACKUPS.md](./BACKUPS.md) |
+
+### Phase 8: a named deviation from the table above
+
+The roadmap names `workspace-worker`/`workspace-websocket` as separate
+containers. Building that split turned out to be the wrong call today,
+not just an unfinished task — two independent findings, not a guess:
+
+- `PresenceService` (`apps/api/src/websocket/presence.service.ts`) is a
+  bare in-process `Map` — already a documented Phase 5 simplification.
+  Splitting the WebSocket gateway into its own container would silently
+  break presence/typing indicators the moment there's more than one
+  replica, since two containers would each hold a different, unshared
+  view of who's online. The real prerequisite (Redis pub/sub-backed
+  presence) doesn't exist — building the split without it wouldn't be
+  "packaging the existing worker," it'd ship a real regression.
+- The reminder scheduler/worker needs no split to be safe at all: it has
+  **two independent idempotency layers** — BullMQ's `jobId: reminderId`
+  dedup on enqueue (`ReminderSchedulerService`), and
+  `RemindersService.claim()`'s atomic
+  `updateMany({where: {id, isSent: false}, data: {isSent: true}})`
+  compare-and-swap before processing. Running multiple replicas of the
+  *entire app* today — scheduler, processor, API, WebSocket gateway all
+  together — would not double-send a reminder. There's no correctness
+  reason to isolate it into its own container.
+
+Given this is a small internal-tool deployment (one company, not a public
+SaaS), a single well-resourced container — exactly how the app already
+runs in dev — is the scale-appropriate choice, not premature horizontal
+splitting. A same-image-different-entrypoint split for blast-radius
+isolation alone (crash the worker without taking down the API) remains a
+real, cheap-later option if it's ever actually needed — it needs a second
+bootstrap entrypoint and its own healthcheck strategy (BullMQ has no
+built-in liveness probe), real but small work, deliberately not built
+this phase absent a measured reason to.
 
 ## Multi-tenancy readiness
 

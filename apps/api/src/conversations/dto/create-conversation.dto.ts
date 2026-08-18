@@ -1,4 +1,4 @@
-import { ArrayMinSize, ArrayUnique, IsArray, IsIn, IsOptional, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from "class-validator";
+import { ArrayMinSize, ArrayUnique, IsArray, IsIn, IsString, IsUUID, MaxLength, MinLength, ValidateIf } from "class-validator";
 import { CONVERSATION_TYPES, type ConversationType } from "@arutech/shared-types";
 
 export class CreateConversationDto {

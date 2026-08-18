@@ -1,0 +1,130 @@
+# Arutech Workspace — production stack for the shared AWS Lightsail host.
+#
+# NOT to be applied before LIGHTSAIL.md's pre-deployment checklist has
+# actually been walked against the real server — that checklist is still
+# 100% unstarted as of this file's creation. This file is ready to use
+# once it has been.
+#
+# Same isolation discipline as docker/docker-compose.dev.yml (project name
+# "arutech-workspace", container name prefix, named volumes) — this is a
+# DIFFERENT physical host than dev, so there's no collision risk with dev
+# reusing the same project name; the risk this discipline actually guards
+# against here is colliding with the OTHER, unrelated application already
+# running on this same Lightsail instance (see LIGHTSAIL.md's hard rules).
+#
+# Build + deploy from the repo root:
+#   docker compose -f docker/docker-compose.prod.yml -p arutech-workspace build
+#   docker compose -f docker/docker-compose.prod.yml -p arutech-workspace up -d
+#   docker compose -f docker/docker-compose.prod.yml -p arutech-workspace exec api node_modules/.bin/prisma migrate deploy
+# (or use the docker:prod:build / docker:prod:up root package.json scripts).
+# NOTE: NOT `pnpm --filter @arutech/api prisma:deploy` — the runtime image
+# is deliberately slim (api.Dockerfile's final stage has no pnpm/corepack,
+# only node), so that command doesn't exist in the running container.
+# `node_modules/.bin/prisma` is the real installed binary and is what
+# actually works — verified against a real boot of this exact compose
+# file, not assumed.
+#
+# IMPORTANT — .env.production (see .env.production.example) must define
+# POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB (read natively by the
+# postgres image via env_file below) AND a DATABASE_URL whose host/port/
+# user/password/dbname agree with those same three values (read by the api
+# container, connecting to the "postgres" service by its container name as
+# host). Nothing enforces these staying in sync automatically — get them
+# wrong and Postgres starts fine but the api container can't connect to it.
+#
+# Deliberately ships ONE api container — not the workspace-worker/
+# workspace-websocket split named in ARCHITECTURE.md's original Phase 8
+# roadmap text. See ARCHITECTURE.md's "Phase 8" section and DEPLOYMENT.md
+# for the full reasoning (short version: PresenceService is in-process-only
+# today, so splitting the WebSocket gateway out would silently break
+# presence the moment there's more than one replica; the reminder
+# scheduler/worker has two independent idempotency layers and doesn't
+# need a split to be safe, so there's no correctness reason to build one).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: arutech-workspace-postgres
+    restart: unless-stopped
+    # env_file, not `environment: POSTGRES_USER: ${POSTGRES_USER}` — the
+    # latter is resolved by Compose's OWN variable substitution, which reads
+    # from a DIFFERENT file (a plain ".env" next to wherever `docker compose`
+    # is invoked from, or the shell's own env) than `env_file:` does. Using
+    # env_file here means .env.production's POSTGRES_USER/PASSWORD/DB lines
+    # are injected directly into this container's process environment,
+    # which the official postgres image's entrypoint already reads
+    # natively — no substitution-timing ambiguity to get wrong.
+    env_file:
+      - ../.env.production
+    # No `ports:` — reachable only from other containers on this compose
+    # project's internal network, unlike dev (which exposes 55432 for
+    # local tooling). Nothing outside this compose project needs to reach
+    # Postgres directly.
+    volumes:
+      - arutech-workspace-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # $$ (not $) — a literal `$` would be swallowed by Compose's own
+      # pre-processing of this YAML file; `$$VAR` produces a literal `$VAR`
+      # inside the container, expanded by ITS shell from the env_file-
+      # injected values above at healthcheck-run time.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  redis:
+    image: redis:7-alpine
+    container_name: arutech-workspace-redis
+    restart: unless-stopped
+    # --appendonly yes: unlike dev, production Redis holds state worth
+    # surviving a restart — an enqueued-but-not-yet-processed BullMQ
+    # reminder job. WS tickets (30s TTL) and presence-adjacent keys don't
+    # need this, but there's no reason to run two Redis instances to
+    # separate them at this scale.
+    command: redis-server --appendonly yes
+    volumes:
+      - arutech-workspace-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/api.Dockerfile
+    container_name: arutech-workspace-api
+    restart: unless-stopped
+    env_file:
+      - ../.env.production
+    # Bound to loopback ONLY. Binding "4000:4000" instead would publish
+    # the API directly to the internet on this host's public IP, bypassing
+    # NGINX/TLS entirely — the one detail in this file most likely to be
+    # copied wrong from a generic template, so it's spelled out here.
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - arutech-workspace-uploads-data:/workspace/apps/api/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+volumes:
+  arutech-workspace-postgres-data:
+    name: arutech-workspace-postgres-data
+  arutech-workspace-redis-data:
+    name: arutech-workspace-redis-data
+  arutech-workspace-uploads-data:
+    name: arutech-workspace-uploads-data

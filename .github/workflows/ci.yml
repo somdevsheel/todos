@@ -1,0 +1,154 @@
+name: CI
+
+# Runs on every push/PR — everything in here genuinely executes in GitHub
+# Actions today, no cloud credentials needed (unlike deploy.yml, which is
+# syntactically ready but can't actually run without Lightsail secrets —
+# see that file's header). This is the real, verifiable half of Phase 8's
+# CI/CD story.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-lint-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # pnpm -r respects the workspace dependency graph — shared-types
+      # builds before api/web automatically, and apps/mobile (no build
+      # script) is skipped, not failed on.
+      - run: pnpm build
+
+      # NOT `pnpm lint` (= `pnpm -r lint`) — apps/web's lint has a
+      # pre-existing bug, unrelated to Phase 8 and confirmed to predate it
+      # (reproduces identically on the pre-Phase-8 lockfile): ESLint 9 +
+      # eslint-config-next's FlatCompat bridge for `next/core-web-vitals`
+      # throws "Converting circular structure to JSON" while validating
+      # eslint-plugin-react's config, before it ever reaches real linting.
+      # Scoped here to the two packages confirmed actually working rather
+      # than silently dropping lint from CI entirely or shipping a CI file
+      # that's red from day one for a reason unrelated to what it's
+      # checking. apps/web's lint is real, separate, pre-existing work.
+      - run: pnpm --filter @arutech/api lint
+      - run: pnpm --filter @arutech/mobile lint
+
+      - run: pnpm test
+
+  # Unit tests (above) mock Prisma entirely — every apps/api/**/*.spec.ts
+  # was checked, none touches a real DATABASE_URL. Only the e2e suite needs
+  # a live stack, and needs three services, not two: Postgres, Redis, AND
+  # MailHog (test/mailhog.helper.ts asserts against real sent mail in
+  # auth.e2e-spec.ts's invite flow).
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: arutech
+          POSTGRES_PASSWORD: arutech_ci_password
+          POSTGRES_DB: arutech_workspace
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U arutech -d arutech_workspace"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      mailhog:
+        image: mailhog/mailhog:v1.0.1
+        ports:
+          - "10250:1025"
+          - "8095:8025"
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://arutech:arutech_ci_password@localhost:5432/arutech_workspace?schema=public
+      REDIS_URL: redis://localhost:6379
+      JWT_ACCESS_SECRET: ci-only-access-secret-not-used-anywhere-real
+      JWT_REFRESH_SECRET: ci-only-refresh-secret-not-used-anywhere-real
+      ALLOWED_EMAIL_DOMAINS: arutechconsultancy.com
+      CORS_ORIGINS: http://localhost:3000
+      SMTP_HOST: localhost
+      SMTP_PORT: "10250"
+      SMTP_SECURE: "false"
+      SMTP_FROM_EMAIL: no-reply@arutechconsultancy.com
+      MAILHOG_API_URL: http://localhost:8095
+      FRONTEND_URL: http://localhost:3000
+      # Deliberately NOT NODE_ENV=production — env.schema.ts's production-only
+      # refinements (32-char secrets, non-localhost SMTP/CORS, FCM required)
+      # would block this exact same setup that runs fine locally in dev/test
+      # mode. AUTH_THROTTLE_LIMIT=1000 is already baked into the test:e2e
+      # script itself (package.json), not repeated here.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @arutech/shared-types build
+      - run: pnpm --filter @arutech/api prisma:generate
+      - run: pnpm --filter @arutech/api prisma:deploy
+      - run: pnpm --filter @arutech/api prisma:seed
+      - run: pnpm --filter @arutech/api test:e2e
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build-only — no push, no registry credentials needed. Catches a
+      # Dockerfile regression (e.g. the .dockerignore/node_modules-symlink
+      # class of bug documented in DEPLOYMENT.md) before it ever reaches a
+      # real deploy.
+      - name: Build the api image
+        run: docker build -f docker/api.Dockerfile -t arutech-workspace-api:ci .
+
+      # Syntax/shape validation for the production compose file — doesn't
+      # need .env.production to exist for `config --no-interpolate`, but a
+      # real `up` boot-smoke-test does (see DEPLOYMENT.md for how that was
+      # verified once, by hand, against this exact file).
+      - name: Validate docker-compose.prod.yml shape
+        run: |
+          cat > .env.production.ci-placeholder << 'EOF'
+          NODE_ENV=production
+          POSTGRES_USER=x
+          POSTGRES_PASSWORD=x
+          POSTGRES_DB=x
+          DATABASE_URL=postgresql://x:x@postgres:5432/x
+          REDIS_URL=redis://redis:6379
+          JWT_ACCESS_SECRET=x
+          JWT_REFRESH_SECRET=x
+          ALLOWED_EMAIL_DOMAINS=arutechconsultancy.com
+          CORS_ORIGINS=https://workspace.arutechconsultancy.com
+          SMTP_HOST=x
+          SMTP_FROM_EMAIL=x@arutechconsultancy.com
+          FCM_PROJECT_ID=x
+          FCM_CLIENT_EMAIL=x
+          FCM_PRIVATE_KEY=x
+          EOF
+          mv .env.production.ci-placeholder .env.production
+          docker compose -f docker/docker-compose.prod.yml -p arutech-workspace-ci config > /dev/null
+          rm -f .env.production

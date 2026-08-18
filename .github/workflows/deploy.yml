@@ -1,0 +1,62 @@
+name: Deploy (Lightsail)
+
+# ============================================================================
+# Manual trigger ONLY — no `on: push`. This is deliberate, not an oversight:
+# auto-deploying to a shared production host this repo has never even
+# inspected (LIGHTSAIL.md's pre-deployment checklist is still 100%
+# unstarted) would be inappropriate. A human walks that checklist once,
+# adds the three secrets below, and only then should this run — and even
+# then, by pressing the button, not on every push to main.
+#
+# STATUS: this workflow is syntactically ready but has NEVER successfully
+# run. It needs secrets.LIGHTSAIL_HOST / LIGHTSAIL_USER / LIGHTSAIL_SSH_KEY,
+# none of which exist yet — see DEPLOYMENT.md.
+#
+# No container registry involved, by design — DATABASE_URL/REDIS_URL etc.
+# are production secrets, not something to bake into a pushed image, and
+# provisioning a registry + its own credentials is one more human-gated
+# step this repo can't do on its own. Instead this builds the image
+# ON THE HOST itself from a fresh `git pull`, same pattern documented in
+# docker-compose.prod.yml's header comment.
+# ============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm — this touches the real shared Lightsail host.'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'deploy'
+    steps:
+      - name: Refuse without a real Lightsail host configured
+        if: ${{ secrets.LIGHTSAIL_HOST == '' }}
+        run: |
+          echo "::error::secrets.LIGHTSAIL_HOST is not set — this repo has never had a Lightsail host configured (see LIGHTSAIL.md's checklist, which must be walked by a human first)."
+          exit 1
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/arutech-workspace   # adjust to wherever this repo actually lives on the host
+            git pull --ff-only
+            docker compose -f docker/docker-compose.prod.yml -p arutech-workspace build
+            docker compose -f docker/docker-compose.prod.yml -p arutech-workspace up -d
+            docker compose -f docker/docker-compose.prod.yml -p arutech-workspace exec -T api node_modules/.bin/prisma migrate deploy
+            docker compose -f docker/docker-compose.prod.yml -p arutech-workspace ps
+
+      - name: Smoke-test the deployed health endpoint
+        run: |
+          # Runs from the GitHub Actions runner, not the host itself — only
+          # meaningful once NGINX + TLS are actually in front of the API
+          # (see docker/nginx/*.conf.template), which is itself gated on
+          # LIGHTSAIL.md's checklist.
+          curl -sf https://api.arutechconsultancy.com/api/v1/health

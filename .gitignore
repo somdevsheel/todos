@@ -12,8 +12,10 @@ out/
 # env
 .env
 .env.local
+.env.production
 .env.*.local
 !.env.example
+!.env.production.example
 
 # logs
 *.log
@@ -22,6 +24,9 @@ pnpm-debug.log*
 
 # testing
 coverage/
+
+# database backups (scripts/backup-postgres.sh's output) — real data, never committed
+/backups/
 
 # prisma
 apps/api/prisma/migrations/dev.db

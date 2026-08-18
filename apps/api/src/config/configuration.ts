@@ -65,6 +65,13 @@ export interface StorageConfig {
   localDir: string;
   maxUploadSizeBytes: number;
   allowedMimeTypes: string[];
+  /** Only meaningful when provider === "s3" — see files/storage/s3.storage.ts. */
+  endpoint?: string;
+  bucket?: string;
+  accessKey?: string;
+  secretKey?: string;
+  /** Matters for real AWS S3 (used in request signing); most S3-compatible servers ignore it. */
+  region?: string;
 }
 
 export interface FcmConfig {
@@ -121,6 +128,11 @@ export default (env: EnvConfig) => ({
     localDir: env.STORAGE_LOCAL_DIR,
     maxUploadSizeBytes: env.MAX_UPLOAD_SIZE_MB * 1024 * 1024,
     allowedMimeTypes: env.ALLOWED_UPLOAD_MIME_TYPES,
+    endpoint: env.STORAGE_ENDPOINT,
+    bucket: env.STORAGE_BUCKET,
+    accessKey: env.STORAGE_ACCESS_KEY,
+    secretKey: env.STORAGE_SECRET_KEY,
+    region: env.STORAGE_REGION,
   } satisfies StorageConfig,
   fcm: {
     projectId: env.FCM_PROJECT_ID ?? "",

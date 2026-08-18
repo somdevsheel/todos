@@ -40,7 +40,6 @@ async function bootstrap(): Promise<void> {
 bootstrap().catch((error) => {
   // A failure here (most commonly: invalid/missing environment variables)
   // must abort startup loudly rather than leave a half-started process.
-  // eslint-disable-next-line no-console
   console.error("Arutech Workspace API failed to start:", error);
   process.exit(1);
 });

@@ -18,8 +18,13 @@
     "docker:dev:up": "docker compose -f docker/docker-compose.dev.yml -p arutech-workspace up -d",
     "docker:dev:down": "docker compose -f docker/docker-compose.dev.yml -p arutech-workspace down",
     "docker:dev:logs": "docker compose -f docker/docker-compose.dev.yml -p arutech-workspace logs -f",
+    "docker:prod:build": "docker compose -f docker/docker-compose.prod.yml -p arutech-workspace build",
+    "docker:prod:up": "docker compose -f docker/docker-compose.prod.yml -p arutech-workspace up -d",
+    "docker:prod:down": "docker compose -f docker/docker-compose.prod.yml -p arutech-workspace down",
+    "docker:prod:logs": "docker compose -f docker/docker-compose.prod.yml -p arutech-workspace logs -f",
     "prisma:generate": "pnpm --filter @arutech/api prisma:generate",
     "prisma:migrate": "pnpm --filter @arutech/api prisma:migrate",
+    "prisma:deploy": "pnpm --filter @arutech/api prisma:deploy",
     "prisma:seed": "pnpm --filter @arutech/api prisma:seed",
     "prisma:studio": "pnpm --filter @arutech/api prisma:studio"
   }

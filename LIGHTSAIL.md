@@ -29,4 +29,4 @@ Before running anything on the actual Lightsail server:
 
 ## Status
 
-Every item above is unstarted. [DEPLOYMENT.md](./DEPLOYMENT.md) covers what's ready to deploy (the `apps/api` Docker image) once this checklist has actually been walked through against the real server.
+Every item above is unstarted. [DEPLOYMENT.md](./DEPLOYMENT.md) covers what's ready to deploy — as of Phase 8, that's a real, locally-verified `docker-compose.prod.yml` and an NGINX config template (`docker/nginx/api.arutechconsultancy.com.conf.template`) — once this checklist has actually been walked through against the real server. Neither file is to be applied blindly; the NGINX template in particular assumes nothing about what's already in the host's config and must be adapted after step 3 above, not before.
