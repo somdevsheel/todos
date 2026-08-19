@@ -1,5 +1,5 @@
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { ConversationSummary, EventSummary, TaskStats } from "@arutech/shared-types";
 import { useAuth } from "@/lib/auth-context";
 import { colors } from "@/lib/theme";
@@ -18,9 +18,18 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
-  const from = new Date();
-  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const eventsQuery = `/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+  // Computed once per mount — see the Calendar tab's identical fix for why
+  // an unmemoized `new Date()` here is a real bug, not just style: this
+  // exact pattern, on this exact screen, was confirmed live to be one of
+  // the two sources hammering the production API into its own rate
+  // limiter (the other being the Calendar tab's 30-day version — the two
+  // interleaved in the real server logs, which is what made the pattern
+  // legible as "two different window sizes firing at once" rather than one).
+  const eventsQuery = useMemo(() => {
+    const from = new Date();
+    const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return `/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+  }, []);
 
   const taskStats = useApiQuery<TaskStats>("/tasks/stats");
   const upcomingEvents = useApiQuery<EventSummary[]>(eventsQuery);

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
 import { Link, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,9 +23,21 @@ function dayHeading(iso: string): string {
  * pattern given the smaller screen. Known simplification, see ANDROID.md.
  */
 export default function CalendarAgendaScreen() {
-  const from = new Date();
-  const to = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
-  const query = `/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+  // Computed once per mount, not on every render — a real bug found live:
+  // `new Date()` here, unmemoized, produces a millisecond-different string
+  // on every render, and useApiQuery's effect depends on that exact string
+  // (see use-api.ts), so each render triggered a brand new fetch, whose
+  // resulting setLoading/setData re-render triggered the next one —
+  // an infinite loop that hammered the real production API into its own
+  // rate limiter within seconds. Confirmed via real server logs, not
+  // theoretical. useMemo(() => ..., []) computes it exactly once, matching
+  // the actual intent ("agenda for the next 30 days from when I opened
+  // this screen"), not "recomputed every render."
+  const query = useMemo(() => {
+    const from = new Date();
+    const to = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return `/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
+  }, []);
   const { data: events, loading, error, reload } = useApiQuery<EventSummary[]>(query);
 
   if (loading && !events) return <LoadingState />;
