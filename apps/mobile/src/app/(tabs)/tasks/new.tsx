@@ -6,11 +6,13 @@ import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { colors } from "@/lib/theme";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
+import { DateTimeField } from "@/components/DateTimeField";
 
 export default function NewTaskScreen() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
+  const [dueDate, setDueDate] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -21,7 +23,12 @@ export default function NewTaskScreen() {
     try {
       const task = await apiFetch<TaskDetail>("/tasks", {
         method: "POST",
-        body: JSON.stringify({ title: title.trim(), description: description.trim() || undefined, priority }),
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim() || undefined,
+          priority,
+          dueDate: dueDate ? dueDate.toISOString() : undefined,
+        }),
       });
       router.replace(`/tasks/${task.id}`);
     } catch (err) {
@@ -36,6 +43,7 @@ export default function NewTaskScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <TextField label="Title" value={title} onChangeText={setTitle} autoFocus placeholder="What needs doing?" />
         <TextField label="Description" value={description} onChangeText={setDescription} multiline style={styles.multiline} />
+        <DateTimeField label="Due date" value={dueDate} onChange={setDueDate} mode="date" />
 
         <View style={styles.field}>
           <Text style={styles.label}>Priority</Text>

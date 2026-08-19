@@ -6,28 +6,21 @@ import { apiFetch, ApiClientError } from "@/lib/api-client";
 import { colors } from "@/lib/theme";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
+import { DateTimeField } from "@/components/DateTimeField";
 
-/**
- * Plain text date/time fields, not a native date-time picker widget — that
- * would mean pulling in @react-native-community/datetimepicker with no
- * way to visually verify it renders correctly on-device in this
- * environment (see ANDROID.md's verification note). Known simplification.
- */
 export default function NewEventScreen() {
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
-  const [startAt, setStartAt] = useState("");
-  const [endAt, setEndAt] = useState("");
+  const [startAt, setStartAt] = useState<Date | null>(null);
+  const [endAt, setEndAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
     if (!title.trim() || !startAt || !endAt) return;
     setError(null);
-    const start = new Date(startAt);
-    const end = new Date(endAt);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      setError("Use the format YYYY-MM-DD HH:MM for start/end.");
+    if (endAt.getTime() <= startAt.getTime()) {
+      setError("End time must be after the start time.");
       return;
     }
     setSubmitting(true);
@@ -37,8 +30,8 @@ export default function NewEventScreen() {
         body: JSON.stringify({
           title: title.trim(),
           location: location.trim() || undefined,
-          startAt: start.toISOString(),
-          endAt: end.toISOString(),
+          startAt: startAt.toISOString(),
+          endAt: endAt.toISOString(),
         }),
       });
       router.replace(`/calendar/${event.id}`);
@@ -54,8 +47,8 @@ export default function NewEventScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <TextField label="Title" value={title} onChangeText={setTitle} autoFocus placeholder="Sprint planning" />
         <TextField label="Location" value={location} onChangeText={setLocation} placeholder="Room 4, or leave blank" />
-        <TextField label="Starts" value={startAt} onChangeText={setStartAt} placeholder="2026-08-20 10:00" autoCapitalize="none" />
-        <TextField label="Ends" value={endAt} onChangeText={setEndAt} placeholder="2026-08-20 11:00" autoCapitalize="none" />
+        <DateTimeField label="Starts" value={startAt} onChange={setStartAt} />
+        <DateTimeField label="Ends" value={endAt} onChange={setEndAt} />
         {error && <Text style={styles.error}>{error}</Text>}
         <Button label="Create event" onPress={submit} loading={submitting} disabled={!title.trim() || !startAt || !endAt} />
       </ScrollView>

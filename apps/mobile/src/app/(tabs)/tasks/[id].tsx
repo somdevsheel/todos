@@ -1,7 +1,15 @@
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { TASK_STATUSES, TASK_STATUS_LABELS, type PaginatedResult, type TaskCommentSummary, type TaskDetail, type TaskStatus } from "@arutech/shared-types";
+import {
+  TASK_STATUSES,
+  TASK_STATUS_LABELS,
+  type PaginatedResult,
+  type TaskCommentSummary,
+  type TaskDetail,
+  type TaskStatus,
+  type UserSummary,
+} from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
 import { colors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
@@ -9,6 +17,7 @@ import { LoadingState, ErrorState } from "@/components/ScreenState";
 import { Card } from "@/components/Card";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/Button";
+import { MultiUserSearchPicker } from "@/components/MultiUserSearchPicker";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
@@ -20,6 +29,7 @@ export default function TaskDetailScreen() {
   const comments = useApiQuery<PaginatedResult<TaskCommentSummary>>(`/tasks/${id}/comments?pageSize=50`);
   const [changingStatus, setChangingStatus] = useState(false);
   const [commentBody, setCommentBody] = useState("");
+  const [commentMentions, setCommentMentions] = useState<UserSummary[]>([]);
   const [postingComment, setPostingComment] = useState(false);
 
   const changeStatus = async (status: TaskStatus) => {
@@ -39,11 +49,12 @@ export default function TaskDetailScreen() {
     if (!commentBody.trim() || !id) return;
     setPostingComment(true);
     try {
-      // Mobile comments are plain text — no @mention picker yet (the web
-      // app's AssigneePicker-driven mentionedUserIds is a bigger UI
-      // investment than this pass covers); known simplification.
-      await apiFetch(`/tasks/${id}/comments`, { method: "POST", body: JSON.stringify({ body: commentBody.trim(), mentionedUserIds: [] }) });
+      await apiFetch(`/tasks/${id}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ body: commentBody.trim(), mentionedUserIds: commentMentions.map((u) => u.id) }),
+      });
       setCommentBody("");
+      setCommentMentions([]);
       comments.reload();
     } catch {
       // same no-toast-library note as changeStatus above
@@ -131,6 +142,7 @@ export default function TaskDetailScreen() {
               style={styles.commentInput}
               multiline
             />
+            <MultiUserSearchPicker selected={commentMentions} onChange={setCommentMentions} />
             <Button label="Post" onPress={postComment} loading={postingComment} disabled={!commentBody.trim()} />
           </View>
         </Card>

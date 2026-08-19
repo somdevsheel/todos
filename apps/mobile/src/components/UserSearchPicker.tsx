@@ -6,11 +6,12 @@ import { colors } from "@/lib/theme";
 import { TextField } from "./TextField";
 
 /**
- * Single-select, DIRECT-conversation-starting search — the mobile
- * equivalent of the web app's AssigneePicker, but simpler: no multi-select
- * chip list, since mobile chat only supports starting a DIRECT conversation
- * in this pass (see chat/new.tsx). Known simplification — no GROUP
- * creation flow on mobile yet.
+ * Single-select, DIRECT-conversation-starting search — tap a result,
+ * navigate immediately, no confirm step. GROUP conversation creation uses
+ * a separate sibling component instead (MultiUserSearchPicker, selected via
+ * the DIRECT/GROUP toggle in chat/new.tsx) rather than adding a
+ * multi-select mode here, so this flow's fast single-tap UX stays
+ * unchanged and unregressed by that addition.
  */
 export function UserSearchPicker({ onSelect }: { onSelect: (user: UserSummary) => void }) {
   const [query, setQuery] = useState("");

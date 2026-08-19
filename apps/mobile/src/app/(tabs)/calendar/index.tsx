@@ -1,59 +1,57 @@
-import { useMemo } from "react";
-import { Pressable, SectionList, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Link, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import type { EventSummary } from "@arutech/shared-types";
+import { CALENDAR_VIEWS, type CalendarView, type EventSummary } from "@arutech/shared-types";
 import { colors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
-import { LoadingState, ErrorState, EmptyState } from "@/components/ScreenState";
-import { EventRow } from "@/components/EventRow";
+import { LoadingState, ErrorState } from "@/components/ScreenState";
+import { addDays, rangeForView } from "@/lib/calendar-dates";
+import { AgendaView } from "@/components/calendar/AgendaView";
+import { MonthView } from "@/components/calendar/MonthView";
+import { WeekView } from "@/components/calendar/WeekView";
+import { DayView } from "@/components/calendar/DayView";
 
-function dayKey(iso: string): string {
-  return new Date(iso).toDateString();
-}
+const VIEW_LABELS: Record<CalendarView, string> = { month: "Month", week: "Week", day: "Day", agenda: "Agenda" };
+const STEP_DAYS: Record<CalendarView, number> = { month: 0, week: 7, day: 1, agenda: 30 };
 
-function dayHeading(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+function step(view: CalendarView, anchor: Date, direction: 1 | -1): Date {
+  if (view === "month") return new Date(anchor.getFullYear(), anchor.getMonth() + direction, 1);
+  return addDays(anchor, STEP_DAYS[view] * direction);
 }
 
 /**
- * Agenda-only on mobile, not the web app's month/week/day grid views — a
- * scrollable list grouped by day (rolling 30-day window off the same
- * GET /events?from=&to= range endpoint) is the standard mobile calendar
- * pattern given the smaller screen. Known simplification, see ANDROID.md.
+ * Parent fetches once, hands `events` down to whichever view is active —
+ * same architecture as apps/web/src/app/(dashboard)/calendar/page.tsx, and
+ * the fix for the real infinite-loop bug this exact screen had before (see
+ * AgendaView.tsx's docstring): `range`/`query` below are memoized on
+ * `[view, anchor]`, not recomputed from a bare `new Date()` on every
+ * render, so useApiQuery's effect only re-fires on an actual navigation
+ * action, never on its own re-render.
  */
-export default function CalendarAgendaScreen() {
-  // Computed once per mount, not on every render — a real bug found live:
-  // `new Date()` here, unmemoized, produces a millisecond-different string
-  // on every render, and useApiQuery's effect depends on that exact string
-  // (see use-api.ts), so each render triggered a brand new fetch, whose
-  // resulting setLoading/setData re-render triggered the next one —
-  // an infinite loop that hammered the real production API into its own
-  // rate limiter within seconds. Confirmed via real server logs, not
-  // theoretical. useMemo(() => ..., []) computes it exactly once, matching
-  // the actual intent ("agenda for the next 30 days from when I opened
-  // this screen"), not "recomputed every render."
-  const query = useMemo(() => {
-    const from = new Date();
-    const to = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
-    return `/events?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
-  }, []);
+export default function CalendarScreen() {
+  const [view, setView] = useState<CalendarView>("agenda");
+  const [anchor, setAnchor] = useState(new Date());
+
+  const range = useMemo(() => rangeForView(view, anchor), [view, anchor]);
+  const query = useMemo(
+    () => `/events?from=${encodeURIComponent(range.from.toISOString())}&to=${encodeURIComponent(range.to.toISOString())}`,
+    [range.from, range.to],
+  );
   const { data: events, loading, error, reload } = useApiQuery<EventSummary[]>(query);
 
-  if (loading && !events) return <LoadingState />;
-  if (error) return <ErrorState message={error} />;
-
-  const sections = Object.values(
-    (events ?? []).reduce<Record<string, { title: string; data: EventSummary[] }>>((acc, event) => {
-      const key = dayKey(event.startAt);
-      if (!acc[key]) acc[key] = { title: dayHeading(event.startAt), data: [] };
-      acc[key].data.push(event);
-      return acc;
-    }, {}),
-  );
+  const goToday = () => setAnchor(view === "month" ? new Date(new Date().getFullYear(), new Date().getMonth(), 1) : new Date());
+  const selectDay = (day: Date) => {
+    setAnchor(day);
+    setView("day");
+  };
 
   return (
-    <View style={styles.flex}>
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={styles.content}
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={reload} />}
+    >
       <Stack.Screen
         options={{
           headerRight: () => (
@@ -66,33 +64,62 @@ export default function CalendarAgendaScreen() {
         }}
       />
 
-      {sections.length === 0 ? (
-        <EmptyState title="Nothing scheduled" description="Nothing on your calendar in the next 30 days." />
+      <View style={styles.toggleRow}>
+        {CALENDAR_VIEWS.map((option) => (
+          <Pressable key={option} onPress={() => setView(option)} style={[styles.toggleOption, view === option && styles.toggleOptionActive]}>
+            <Text style={[styles.toggleLabel, view === option && styles.toggleLabelActive]}>{VIEW_LABELS[option]}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <View style={styles.navRow}>
+        <Pressable onPress={() => setAnchor(step(view, anchor, -1))} hitSlop={8}>
+          <Ionicons name="chevron-back" size={20} color={colors.ink} />
+        </Pressable>
+        <Pressable onPress={goToday} style={styles.todayButton}>
+          <Text style={styles.todayLabel}>Today</Text>
+        </Pressable>
+        <Pressable onPress={() => setAnchor(step(view, anchor, 1))} hitSlop={8}>
+          <Ionicons name="chevron-forward" size={20} color={colors.ink} />
+        </Pressable>
+        <Text style={styles.rangeLabel} numberOfLines={1}>
+          {range.label}
+        </Text>
+      </View>
+
+      {loading && !events ? (
+        <LoadingState />
+      ) : error ? (
+        <ErrorState message={error} />
       ) : (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => <EventRow event={item} />}
-          renderSectionHeader={({ section }) => <Text style={styles.sectionHeader}>{section.title}</Text>}
-          onRefresh={reload}
-          refreshing={loading}
-          stickySectionHeadersEnabled={false}
-        />
+        <>
+          {view === "agenda" && <AgendaView events={events ?? []} anchor={anchor} />}
+          {view === "month" && <MonthView events={events ?? []} anchor={anchor} onSelectDay={selectDay} />}
+          {view === "week" && <WeekView events={events ?? []} anchor={anchor} />}
+          {view === "day" && <DayView events={events ?? []} anchor={anchor} />}
+        </>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  list: { padding: 12, gap: 8 },
-  sectionHeader: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.inkMuted,
-    textTransform: "uppercase",
-    marginTop: 10,
-    marginBottom: 6,
+  content: { padding: 16, gap: 14 },
+  toggleRow: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 2,
   },
+  toggleOption: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+  toggleOptionActive: { backgroundColor: colors.accentSoft },
+  toggleLabel: { fontSize: 12, fontWeight: "600", color: colors.inkMuted },
+  toggleLabelActive: { color: colors.accentStrong },
+  navRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  todayButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  todayLabel: { fontSize: 12, fontWeight: "600", color: colors.ink },
+  rangeLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.ink, textAlign: "right" },
 });

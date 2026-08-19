@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import type { MessageSummary, PaginatedResult } from "@arutech/shared-types";
+import type { MessageSummary, PaginatedResult, UserSummary } from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useChatSocket } from "@/lib/socket-context";
@@ -9,6 +9,7 @@ import { colors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { LoadingState, ErrorState } from "@/components/ScreenState";
 import { Button } from "@/components/Button";
+import { MultiUserSearchPicker } from "@/components/MultiUserSearchPicker";
 
 const TYPING_TIMEOUT_MS = 4000;
 const TYPING_STOP_DELAY_MS = 2000;
@@ -21,6 +22,7 @@ export default function ConversationDetailScreen() {
 
   const [messages, setMessages] = useState<MessageSummary[]>([]);
   const [body, setBody] = useState("");
+  const [mentions, setMentions] = useState<UserSummary[]>([]);
   const [sending, setSending] = useState(false);
   const [typingUserIds, setTypingUserIds] = useState<Set<string>>(new Set());
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
@@ -122,10 +124,11 @@ export default function ConversationDetailScreen() {
     try {
       const message = await apiFetch<MessageSummary>(`/conversations/${id}/messages`, {
         method: "POST",
-        body: JSON.stringify({ body: body.trim() }),
+        body: JSON.stringify({ body: body.trim(), mentionedUserIds: mentions.map((u) => u.id) }),
       });
       setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
       setBody("");
+      setMentions([]);
     } catch {
       // no toast library on mobile yet
     } finally {
@@ -168,19 +171,22 @@ export default function ConversationDetailScreen() {
 
       {typingLabel && <Text style={styles.typing}>{typingLabel}</Text>}
 
-      <View style={styles.composer}>
-        <TextInput
-          value={body}
-          onChangeText={(text) => {
-            setBody(text);
-            notifyTyping();
-          }}
-          placeholder="Write a message…"
-          placeholderTextColor={colors.inkMuted}
-          style={styles.input}
-          multiline
-        />
-        <Button label="Send" onPress={send} loading={sending} disabled={!body.trim()} />
+      <View style={styles.composerWrap}>
+        <MultiUserSearchPicker selected={mentions} onChange={setMentions} />
+        <View style={styles.composer}>
+          <TextInput
+            value={body}
+            onChangeText={(text) => {
+              setBody(text);
+              notifyTyping();
+            }}
+            placeholder="Write a message…"
+            placeholderTextColor={colors.inkMuted}
+            style={styles.input}
+            multiline
+          />
+          <Button label="Send" onPress={send} loading={sending} disabled={!body.trim()} />
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -198,14 +204,17 @@ const styles = StyleSheet.create({
   bubbleText: { fontSize: 14, color: colors.ink },
   bubbleTextMine: { color: colors.white },
   typing: { fontSize: 12, fontStyle: "italic", color: colors.inkMuted, paddingHorizontal: 16, paddingBottom: 4 },
-  composer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
+  composerWrap: {
     gap: 8,
     padding: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.surface,
+  },
+  composer: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
   },
   input: {
     flex: 1,

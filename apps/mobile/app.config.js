@@ -16,14 +16,37 @@ module.exports = {
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
+    // 1024x1024, solid brand-teal background (matches adaptiveIcon.backgroundColor
+    // below) — real logo, but upscaled from the only source available (a
+    // 250x250 PNG) via LANCZOS resampling; some softness is visible on close
+    // inspection. Real asset, not a placeholder, with an honest quality caveat.
+    icon: "./assets/icon.png",
     android: {
       package: "com.arutechconsultancy.workspace",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? "./google-services.json",
       adaptiveIcon: {
+        // Transparent, safe-zone-padded (logo occupies ~55% of the canvas) —
+        // Android crops this into a circle/squircle/rounded-square per-launcher,
+        // and content too close to the edge gets clipped.
+        foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#2F5D50",
       },
     },
-    plugins: ["expo-router", "expo-secure-store", "expo-notifications"],
+    plugins: [
+      "expo-router",
+      "expo-secure-store",
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#2F5D50",
+        },
+      ],
+    ],
     extra: {
       router: {},
       eas: {

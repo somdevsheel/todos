@@ -5,7 +5,7 @@ import { colors } from "@/lib/theme";
 import { Card } from "./Card";
 import { Badge } from "./Badge";
 
-const STATUS_COLORS: Record<string, { color: string; background: string }> = {
+export const STATUS_COLORS: Record<string, { color: string; background: string }> = {
   TODO: { color: colors.inkMuted, background: colors.surfaceSubtle },
   IN_PROGRESS: { color: "#1e40af", background: "#dbeafe" },
   IN_REVIEW: { color: "#92400e", background: "#fef3c7" },
