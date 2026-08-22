@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { EventSummary } from "@arutech/shared-types";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { eventsForDay, getMonthGridDays, isSameDay, startOfMonth } from "@/lib/calendar-dates";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -13,6 +14,8 @@ const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
  * both do this).
  */
 export function MonthView({ events, anchor, onSelectDay }: { events: EventSummary[]; anchor: Date; onSelectDay: (day: Date) => void }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const days = getMonthGridDays(startOfMonth(anchor));
   const today = new Date();
 
@@ -50,17 +53,19 @@ export function MonthView({ events, anchor, onSelectDay }: { events: EventSummar
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: 4 },
-  weekdayRow: { flexDirection: "row" },
-  weekdayLabel: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "600", color: colors.inkMuted, paddingBottom: 6 },
-  grid: { flexDirection: "row", flexWrap: "wrap" },
-  cell: { width: `${100 / 7}%`, alignItems: "center", paddingVertical: 6, gap: 4 },
-  dateBubble: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  dateBubbleToday: { backgroundColor: colors.accent },
-  dateText: { fontSize: 13, color: colors.ink },
-  dateTextToday: { color: colors.white, fontWeight: "700" },
-  dateTextOutOfMonth: { color: colors.inkMuted, opacity: 0.5 },
-  dotsRow: { flexDirection: "row", gap: 3 },
-  dot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.accent },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    container: { gap: 4 },
+    weekdayRow: { flexDirection: "row" },
+    weekdayLabel: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "600", color: colors.inkMuted, paddingBottom: 6 },
+    grid: { flexDirection: "row", flexWrap: "wrap" },
+    cell: { width: `${100 / 7}%`, alignItems: "center", paddingVertical: 6, gap: 4 },
+    dateBubble: { width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    dateBubbleToday: { backgroundColor: colors.accent },
+    dateText: { fontSize: 13, color: colors.ink },
+    dateTextToday: { color: colors.white, fontWeight: "700" },
+    dateTextOutOfMonth: { color: colors.inkMuted, opacity: 0.5 },
+    dotsRow: { flexDirection: "row", gap: 3 },
+    dot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: colors.accent },
+  });
+}

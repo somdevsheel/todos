@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import type { MessageSummary, PaginatedResult, UserSummary } from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { useChatSocket } from "@/lib/socket-context";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { LoadingState, ErrorState } from "@/components/ScreenState";
 import { Button } from "@/components/Button";
@@ -15,6 +15,8 @@ const TYPING_TIMEOUT_MS = 4000;
 const TYPING_STOP_DELAY_MS = 2000;
 
 export default function ConversationDetailScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const socket = useChatSocket();
@@ -192,40 +194,42 @@ export default function ConversationDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  list: { padding: 12, gap: 8 },
-  bubbleRow: { flexDirection: "row" },
-  bubbleRowMine: { justifyContent: "flex-end" },
-  bubble: { maxWidth: "78%", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
-  bubbleTheirs: { backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.border },
-  bubbleMine: { backgroundColor: colors.accent },
-  senderName: { fontSize: 11, fontWeight: "600", color: colors.inkMuted, marginBottom: 2 },
-  bubbleText: { fontSize: 14, color: colors.ink },
-  bubbleTextMine: { color: colors.white },
-  typing: { fontSize: 12, fontStyle: "italic", color: colors.inkMuted, paddingHorizontal: 16, paddingBottom: 4 },
-  composerWrap: {
-    gap: 8,
-    padding: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  composer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    minHeight: 44,
-    maxHeight: 120,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: colors.ink,
-  },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    list: { padding: 12, gap: 8 },
+    bubbleRow: { flexDirection: "row" },
+    bubbleRowMine: { justifyContent: "flex-end" },
+    bubble: { maxWidth: "78%", borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 },
+    bubbleTheirs: { backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.border },
+    bubbleMine: { backgroundColor: colors.accent },
+    senderName: { fontSize: 11, fontWeight: "600", color: colors.inkMuted, marginBottom: 2 },
+    bubbleText: { fontSize: 14, color: colors.ink },
+    bubbleTextMine: { color: colors.white },
+    typing: { fontSize: 12, fontStyle: "italic", color: colors.inkMuted, paddingHorizontal: 16, paddingBottom: 4 },
+    composerWrap: {
+      gap: 8,
+      padding: 12,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    composer: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 8,
+    },
+    input: {
+      flex: 1,
+      minHeight: 44,
+      maxHeight: 120,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+      color: colors.ink,
+    },
+  });
+}

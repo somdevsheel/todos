@@ -1,5 +1,6 @@
+import { useMemo } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from "react-native";
-import { colors } from "@/lib/theme";
+import { radius, useThemeColors } from "@/lib/theme";
 
 export interface ButtonProps extends Omit<PressableProps, "style"> {
   label: string;
@@ -8,6 +9,8 @@ export interface ButtonProps extends Omit<PressableProps, "style"> {
 }
 
 export function Button({ label, loading, variant = "primary", disabled, ...props }: ButtonProps) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -32,13 +35,15 @@ export function Button({ label, loading, variant = "primary", disabled, ...props
   );
 }
 
-const styles = StyleSheet.create({
-  base: { height: 46, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
-  primary: { backgroundColor: colors.accent },
-  secondary: { backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.border },
-  danger: { backgroundColor: colors.danger },
-  disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.85 },
-  label: { color: colors.white, fontWeight: "600", fontSize: 15 },
-  labelSecondary: { color: colors.ink },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    base: { height: 46, borderRadius: radius.md, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
+    primary: { backgroundColor: colors.accent },
+    secondary: { backgroundColor: colors.surfaceSubtle, borderWidth: 1, borderColor: colors.border },
+    danger: { backgroundColor: colors.danger },
+    disabled: { opacity: 0.5 },
+    pressed: { opacity: 0.85 },
+    label: { color: colors.white, fontWeight: "600", fontSize: 15 },
+    labelSecondary: { color: colors.ink },
+  });
+}

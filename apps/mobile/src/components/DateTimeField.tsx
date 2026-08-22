@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { colors } from "@/lib/theme";
+import { radius, useThemeColors } from "@/lib/theme";
 
 /**
  * Native date + time picker — Android-only (this app targets Android
@@ -29,6 +29,8 @@ export function DateTimeField({
   /** "date": just the date step, skips the time dialog — matches web's task due-date field (a date-only `<input type="date">`, see TaskForm.tsx). Default "datetime" is for events, which need both. */
   mode?: "datetime" | "date";
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [step, setStep] = useState<"idle" | "date" | "time">("idle");
 
   const displayValue = value
@@ -77,18 +79,20 @@ export function DateTimeField({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: 6 },
-  label: { fontSize: 13, fontWeight: "600", color: colors.ink },
-  field: {
-    height: 46,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 12,
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-  },
-  value: { fontSize: 15, color: colors.ink },
-  placeholder: { color: colors.inkMuted },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    container: { gap: 6 },
+    label: { fontSize: 13, fontWeight: "600", color: colors.ink },
+    field: {
+      height: 46,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 12,
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+    },
+    value: { fontSize: 15, color: colors.ink },
+    placeholder: { color: colors.inkMuted },
+  });
+}

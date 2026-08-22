@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { PaginatedResult, UserSummary } from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { TextField } from "./TextField";
 
 /**
@@ -21,6 +21,8 @@ export function MultiUserSearchPicker({
   selected: UserSummary[];
   onChange: (users: UserSummary[]) => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,20 +92,22 @@ export function MultiUserSearchPicker({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: 10 },
-  chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: colors.accentSoft,
-  },
-  chipLabel: { fontSize: 13, fontWeight: "600", color: colors.accentStrong },
-  row: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
-  name: { fontSize: 14, fontWeight: "600", color: colors.ink },
-  email: { fontSize: 12, color: colors.inkMuted },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    container: { gap: 10 },
+    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    chip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
+      borderRadius: 999,
+      backgroundColor: colors.accentSoft,
+    },
+    chipLabel: { fontSize: 13, fontWeight: "600", color: colors.accentStrong },
+    row: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+    name: { fontSize: 14, fontWeight: "600", color: colors.ink },
+    email: { fontSize: 12, color: colors.inkMuted },
+  });
+}

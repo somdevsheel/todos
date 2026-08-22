@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ApiClientError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 
 export default function LoginScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,11 +54,13 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  content: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 24 },
-  title: { fontSize: 22, fontWeight: "700", color: colors.ink, textAlign: "center" },
-  subtitle: { fontSize: 14, color: colors.inkMuted, textAlign: "center" },
-  form: { gap: 14 },
-  error: { color: colors.danger, fontSize: 13, textAlign: "center" },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 24 },
+    title: { fontSize: 22, fontWeight: "700", color: colors.ink, textAlign: "center" },
+    subtitle: { fontSize: 14, color: colors.inkMuted, textAlign: "center" },
+    form: { gap: 14 },
+    error: { color: colors.danger, fontSize: 13, textAlign: "center" },
+  });
+}

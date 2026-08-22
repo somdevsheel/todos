@@ -1,15 +1,19 @@
 # Android App
 
-**Status: real screens across auth, tasks, calendar, and chat — verified via
-`tsc --noEmit`, ESLint, and a real `expo export --platform android` bundle
-build. Not verified: an actual running app.** There is no Android
-emulator or physical device available in this environment (`adb devices`
-finds nothing, no AVD images installed), so nothing here has been visually
+**Status: real screens across auth, tasks, calendar, chat, notifications,
+and org/admin management (departments, teams, employees, invitations,
+announcements, audit log, permission matrix) — plus a real dark mode
+matching the web app's palette exactly. Verified via `tsc --noEmit`,
+ESLint, and a real `expo export --platform android` bundle build. Not
+verified: an actual running app.** There is no Android emulator or
+physical device available in this environment (`adb devices` finds
+nothing, no AVD images installed), so nothing here has been visually
 confirmed on-screen, interacted with by touch, or checked for a live
 login/CRUD/push round-trip. That's a materially different (weaker) claim
 than "done" — the code compiles, type-checks, lints clean, and Metro
-successfully bundles the full dependency graph into a working `.hbc`, which
-is real signal, but it isn't the same as watching it run.
+successfully bundles the full dependency graph (1477 modules as of the
+admin-screens pass) into a working `.hbc`, which is real signal, but it
+isn't the same as watching it run.
 
 ## What exists today
 
@@ -73,17 +77,131 @@ is real signal, but it isn't the same as watching it run.
 - `react-native` stays exact-pinned (`0.86.2`); new dependencies were
   installed via `npx expo install <pkg>`, never a hand-picked semver
   range — see the Phase 1 lesson documented below.
-- Same visual palette as the web app (`lib/theme.ts` mirrors
-  `apps/web/src/app/globals.css`'s light-mode `:root` values) — no dark
-  mode yet on mobile (the web app switches on `prefers-color-scheme`; RN's
-  equivalent, `useColorScheme()`, isn't wired through every screen).
+- Same visual palette as the web app, **light and dark** — `lib/theme.ts`
+  now exports a `useThemeColors()` hook (not a static object) mirroring
+  both halves of `apps/web/src/app/globals.css`'s `@theme`/
+  `prefers-color-scheme: dark` blocks exactly, switching on RN's
+  `useColorScheme()`. See "Closed gaps" below for why this had to be a
+  hook, not a constant, and what changed to support it.
+- **Notifications** (`app/notifications.tsx`): reached via a bell icon in
+  the tab header, not a 6th tab — matches web, which only ever puts
+  Notifications behind a Topbar icon too (see `NAV_ITEMS`' `showInBottomNav`
+  flags in shared-types). List, mark-one-read-and-navigate,
+  mark-all-read.
+- **Org/admin management** (`(tabs)/settings/`, now a nested stack instead
+  of one flat screen): Departments, Teams (list + a member-management
+  detail screen), Employees (list + profile edit/status actions/role
+  editor), Invite an employee, Announcements, and — SUPER_ADMIN only —
+  the full Audit log (filterable, paginated) and the Roles & permissions
+  matrix, carrying the same "doesn't gate anything yet" caveat web's
+  version states. Every screen's role gate matches the API's actual guard,
+  not just which tile is visible.
 
 ## Known gaps, stated plainly
 
 - No push notification has ever actually been delivered to a device — see
   FCM.md's parallel caveat.
+- No native picker component is installed in this app (no
+  `@react-native-picker/picker`, nothing equivalent), so three mobile
+  admin forms are narrower than their web counterparts specifically where
+  web uses a `<select>`: creating/editing a **team** can't assign a
+  `departmentId` from mobile, editing an **employee**'s profile can't
+  reassign their department either, and the **invite** form doesn't offer
+  a department picker. All three remain real, working actions otherwise
+  (name/description/roles/etc. all save correctly) — this is a scoped,
+  named gap, not a silent omission, and the fix is "install a picker
+  library and wire one more field," not an architectural change.
 
 ## Closed gaps
+
+- **Tapping a row (chat conversation, task, event, Kanban card, employee)
+  did nothing** — a real bug, found from a user report ("chat doesn't
+  open when I tap an existing conversation"), not caught by `tsc`/ESLint/
+  `expo export`, none of which check whether a tap actually does anything.
+  Root cause: `<Link href={...} asChild><Card>...</Card></Link>` — Expo
+  Router's `asChild` clones its *immediate* child and merges an `onPress`
+  handler onto it (confirmed by reading `expo-router`'s own
+  `BaseExpoRouterLink`/`Slot` source, which wraps `@radix-ui/react-slot`).
+  `Card` just renders a plain `View`, and a plain RN `View` has no
+  built-in touch handling — only `Pressable`/`Touchable*` do — so the
+  injected `onPress` landed on an element that silently ignores it. This
+  is why it type-checked and bundled fine: nothing about it is a type or
+  bundling error, only a runtime one. Fixed everywhere this pattern
+  appeared (`chat/index.tsx`, `TaskRow.tsx`, `EventRow.tsx`,
+  `TaskKanbanCard.tsx`, `settings/employees/index.tsx`) by inserting a
+  `Pressable` between `Link` and `Card` — `<Link asChild><Pressable><Card>
+  ...</Card></Pressable></Link>` — matching the pattern already used
+  correctly elsewhere in this app (every icon-button header action, and
+  `settings/index.tsx`/`settings/teams/index.tsx`, which is how the bug
+  was scoped: grepped every `<Link ... asChild>` in the app and checked
+  each one's immediate child by hand, not fixed by pattern-matching alone).
+  Verified via `tsc --noEmit`, ESLint, and a real `expo export` bundle —
+  same honest caveat as everywhere else in this doc: not confirmed by an
+  actual tap on an actual device, since none is available here.
+
+- **A white/light gap below short screens in dark mode** — a second real
+  bug, found from a user-supplied screenshot (the Dashboard and an Event
+  detail screen, both dark-themed everywhere except a plain light band
+  between the content and the bottom tab bar). Root cause: 12 screens'
+  top-level `<ScrollView contentContainerStyle={styles.content}>` set
+  `backgroundColor` only on `contentContainerStyle` — the inner content
+  wrapper, sized to the *content's* height — never on the `ScrollView`
+  itself, which is what actually fills the *screen's* height. When a
+  screen's content is shorter than the viewport (the common case — an
+  empty/near-empty dashboard, a short event), the leftover space belongs
+  to the `ScrollView`'s own box, which had no background of its own and so
+  fell through to the navigator's default (light) scene color — invisible
+  in light mode by coincidence (both landed near-white), glaringly visible
+  once dark mode existed. Fixed at both levels: each affected screen now
+  also sets `style={{flex:1, backgroundColor: colors.surfaceSubtle}}` on
+  the `ScrollView` itself (the real fix — found by grepping every
+  `<ScrollView contentContainerStyle` in the app and checking whether its
+  *own* `style` prop, not just its content container, carried a
+  background), and every `Stack`/`Tabs` navigator now also sets
+  `contentStyle`/`sceneStyle` to the theme's `surfaceSubtle` as a safety
+  net for whatever screen gets added next and makes the same mistake.
+  Screens already wrapped in a backgrounded `KeyboardAvoidingView` or
+  outer `View` (`login.tsx`, `tasks/new.tsx`, `tasks/[id].tsx`,
+  `calendar/new.tsx`, `tasks/index.tsx`'s Kanban scroll) didn't have this
+  bug — confirmed by reading each one, not assumed from the pattern name
+  alone. Verified via `tsc --noEmit`, ESLint, and a real `expo export`
+  bundle; not yet confirmed by looking at an actual device, same caveat
+  as the rest of this section.
+
+- **Dark mode** — `lib/theme.ts`'s flat `colors` export became a
+  `useThemeColors()` hook (`light`/`dark` objects switched on
+  `useColorScheme()`), because a module-scope constant evaluated once at
+  import time structurally cannot react to the device's appearance
+  changing at runtime — only a hook subscribing through React's render
+  cycle can. That forced a real, mechanical change across every one of the
+  ~30 files that imported the old constant: each now calls
+  `const colors = useThemeColors()` inside its component body and builds
+  its `StyleSheet.create(...)` inside `useMemo(() => ..., [colors])`
+  rather than at module scope (a plain `StyleSheet.create` outside any
+  component can only ever see whatever palette was active when the module
+  first loaded). Two real wrinkles found while doing this: `TaskRow.tsx`
+  exported a module-scope `STATUS_COLORS` constant computed from `colors`
+  at import time — became a `getStatusColors(colors)` function instead;
+  and `--color-warning`/`--color-success` existed on web's palette but
+  were missing from mobile's — added to both light and dark. Verified via
+  `tsc --noEmit` (clean — nothing depends on the old `colors` export
+  anymore, confirmed by grep before and after) and a real
+  `expo export --platform android` bundle.
+- **Notifications screen and org/admin management** — the day-to-day gap
+  (no in-app notification list, despite push registration already being
+  wired) and the bigger one (no Teams/Employees/Admin equivalent on mobile
+  at all) were closed together, each screen calling the API directly with
+  the exact endpoints/DTOs/role-gates web's equivalent page uses — not
+  reinvented. `settings.tsx` (one flat screen) became `settings/` (a
+  nested `Stack`, matching the existing `tasks/`/`calendar/`/`chat/`
+  pattern), fanning out to the screens listed above. Reused
+  `UserSearchPicker` for "add a team member" even though its own docstring
+  frames it around starting a direct chat — the component's actual
+  behavior (search, tap a result, fire a callback) is generic; only the
+  caller's callback differs. Added an `excludeUserIds` prop to it in the
+  process (it didn't have one; `MultiUserSearchPicker` already did) so
+  someone already on a team doesn't show up in their own team's
+  "add a member" search.
 
 - **GROUP conversation creation** — `chat/new.tsx` now has a DIRECT/GROUP
   toggle; GROUP mode uses a new `MultiUserSearchPicker` (mobile's

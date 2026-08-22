@@ -1,7 +1,8 @@
-import { StyleSheet, Text } from "react-native";
+import { useMemo } from "react";
+import { Pressable, StyleSheet, Text } from "react-native";
 import { Link } from "expo-router";
 import { TASK_PRIORITY_LABELS, type TaskSummary } from "@arutech/shared-types";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { Card } from "@/components/Card";
 
 /**
@@ -15,20 +16,26 @@ import { Card } from "@/components/Card";
  * are already tested, and aren't duplicated here.
  */
 export function TaskKanbanCard({ task }: { task: TaskSummary }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Link href={`/tasks/${task.id}`} asChild>
-      <Card style={styles.card}>
-        <Text style={styles.title} numberOfLines={2}>
-          {task.title}
-        </Text>
-        <Text style={styles.priority}>{TASK_PRIORITY_LABELS[task.priority]}</Text>
-      </Card>
+      <Pressable>
+        <Card style={styles.card}>
+          <Text style={styles.title} numberOfLines={2}>
+            {task.title}
+          </Text>
+          <Text style={styles.priority}>{TASK_PRIORITY_LABELS[task.priority]}</Text>
+        </Card>
+      </Pressable>
     </Link>
   );
 }
 
-const styles = StyleSheet.create({
-  card: { gap: 4, width: 180 },
-  title: { fontSize: 13, fontWeight: "600", color: colors.ink },
-  priority: { fontSize: 11, color: colors.inkMuted },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    card: { gap: 4, width: 180 },
+    title: { fontSize: 13, fontWeight: "600", color: colors.ink },
+    priority: { fontSize: 11, color: colors.inkMuted },
+  });
+}

@@ -2,7 +2,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native
 import { useCallback, useMemo, useState } from "react";
 import type { ConversationSummary, EventSummary, TaskStats } from "@arutech/shared-types";
 import { useAuth } from "@/lib/auth-context";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { StatCard } from "@/components/StatCard";
 import { LoadingState } from "@/components/ScreenState";
@@ -15,6 +15,8 @@ function greeting(): string {
 }
 
 export default function DashboardScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -55,6 +57,7 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView
+      style={styles.flex}
       contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
     >
@@ -77,9 +80,12 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  content: { padding: 16, gap: 20, backgroundColor: colors.surfaceSubtle },
-  title: { fontSize: 20, fontWeight: "700", color: colors.ink },
-  subtitle: { fontSize: 13, color: colors.inkMuted, marginTop: 2 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { padding: 16, gap: 20 },
+    title: { fontSize: 20, fontWeight: "700", color: colors.ink },
+    subtitle: { fontSize: 13, color: colors.inkMuted, marginTop: 2 },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  });
+}

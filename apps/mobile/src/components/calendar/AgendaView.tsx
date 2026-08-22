@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { SectionList, StyleSheet, Text } from "react-native";
 import type { EventSummary } from "@arutech/shared-types";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { EventRow } from "@/components/EventRow";
 import { EmptyState } from "@/components/ScreenState";
 
@@ -24,6 +25,8 @@ function dayHeading(iso: string): string {
  * into a query string now).
  */
 export function AgendaView({ events }: { events: EventSummary[]; anchor: Date }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const sections = Object.values(
     events.reduce<Record<string, { title: string; data: EventSummary[] }>>((acc, event) => {
       const key = dayKey(event.startAt);
@@ -50,14 +53,16 @@ export function AgendaView({ events }: { events: EventSummary[]; anchor: Date })
   );
 }
 
-const styles = StyleSheet.create({
-  list: { gap: 8 },
-  sectionHeader: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.inkMuted,
-    textTransform: "uppercase",
-    marginTop: 10,
-    marginBottom: 6,
-  },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    list: { gap: 8 },
+    sectionHeader: {
+      fontSize: 12,
+      fontWeight: "700",
+      color: colors.inkMuted,
+      textTransform: "uppercase",
+      marginTop: 10,
+      marginBottom: 6,
+    },
+  });
+}

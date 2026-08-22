@@ -6,8 +6,10 @@ import * as Notifications from "expo-notifications";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { SocketProvider } from "@/lib/socket-context";
 import { handleNotificationResponse, registerForPushNotificationsAsync } from "@/lib/notifications";
+import { useThemeColors } from "@/lib/theme";
 
 function RootNavigator() {
+  const colors = useThemeColors();
   const { user, loading } = useAuth();
 
   useEffect(() => {
@@ -23,7 +25,12 @@ function RootNavigator() {
   if (loading) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    // contentStyle here is a safety net, not the primary fix: it's what
+    // shows through behind a screen whose own content is shorter than the
+    // viewport (see ANDROID.md's "white gap below short screens" entry —
+    // every individual screen also needs its own ScrollView styled to
+    // fill the screen; this alone doesn't replace that).
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surfaceSubtle } }}>
       <Stack.Protected guard={Boolean(user)}>
         <Stack.Screen name="(tabs)" />
       </Stack.Protected>

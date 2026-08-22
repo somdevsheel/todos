@@ -3,7 +3,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "r
 import { Link, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CALENDAR_VIEWS, type CalendarView, type EventSummary } from "@arutech/shared-types";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { LoadingState, ErrorState } from "@/components/ScreenState";
 import { addDays, rangeForView } from "@/lib/calendar-dates";
@@ -30,6 +30,8 @@ function step(view: CalendarView, anchor: Date, direction: 1 | -1): Date {
  * action, never on its own re-render.
  */
 export default function CalendarScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [view, setView] = useState<CalendarView>("agenda");
   const [anchor, setAnchor] = useState(new Date());
 
@@ -103,23 +105,25 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  content: { padding: 16, gap: 14 },
-  toggleRow: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 2,
-  },
-  toggleOption: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
-  toggleOptionActive: { backgroundColor: colors.accentSoft },
-  toggleLabel: { fontSize: 12, fontWeight: "600", color: colors.inkMuted },
-  toggleLabelActive: { color: colors.accentStrong },
-  navRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  todayButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
-  todayLabel: { fontSize: 12, fontWeight: "600", color: colors.ink },
-  rangeLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.ink, textAlign: "right" },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { padding: 16, gap: 14 },
+    toggleRow: {
+      flexDirection: "row",
+      alignSelf: "flex-start",
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 2,
+    },
+    toggleOption: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8 },
+    toggleOptionActive: { backgroundColor: colors.accentSoft },
+    toggleLabel: { fontSize: 12, fontWeight: "600", color: colors.inkMuted },
+    toggleLabelActive: { color: colors.accentStrong },
+    navRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    todayButton: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+    todayLabel: { fontSize: 12, fontWeight: "600", color: colors.ink },
+    rangeLabel: { flex: 1, fontSize: 13, fontWeight: "600", color: colors.ink, textAlign: "right" },
+  });
+}

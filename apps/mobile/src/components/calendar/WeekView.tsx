@@ -1,6 +1,7 @@
+import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import type { EventSummary } from "@arutech/shared-types";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { eventsForDay, getWeekDays, isSameDay, startOfWeek } from "@/lib/calendar-dates";
 import { EventRow } from "@/components/EventRow";
 import { EmptyState } from "@/components/ScreenState";
@@ -16,6 +17,8 @@ function formatDayHeading(date: Date): string {
  * cramming 7 narrow columns onto one screen.
  */
 export function WeekView({ events, anchor }: { events: EventSummary[]; anchor: Date }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const days = getWeekDays(startOfWeek(anchor));
   const today = new Date();
 
@@ -46,11 +49,13 @@ export function WeekView({ events, anchor }: { events: EventSummary[]; anchor: D
   );
 }
 
-const styles = StyleSheet.create({
-  container: { gap: 16 },
-  section: { gap: 8 },
-  heading: { fontSize: 13, fontWeight: "700", color: colors.inkMuted, textTransform: "uppercase" },
-  headingToday: { color: colors.accentStrong },
-  empty: { fontSize: 13, color: colors.inkMuted },
-  eventsGap: { gap: 8 },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    container: { gap: 16 },
+    section: { gap: 8 },
+    heading: { fontSize: 13, fontWeight: "700", color: colors.inkMuted, textTransform: "uppercase" },
+    headingToday: { color: colors.accentStrong },
+    empty: { fontSize: 13, color: colors.inkMuted },
+    eventsGap: { gap: 8 },
+  });
+}

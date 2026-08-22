@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { Link, Stack } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { ConversationSummary, MessageSummary } from "@arutech/shared-types";
 import { useAuth } from "@/lib/auth-context";
 import { useChatSocket } from "@/lib/socket-context";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { LoadingState, ErrorState, EmptyState } from "@/components/ScreenState";
 import { Card } from "@/components/Card";
@@ -17,6 +17,8 @@ function displayName(conversation: ConversationSummary, currentUserId: string): 
 }
 
 export default function ChatListScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { user } = useAuth();
   const socket = useChatSocket();
   const { data, loading, error, reload } = useApiQuery<ConversationSummary[]>("/conversations");
@@ -77,21 +79,23 @@ export default function ChatListScreen() {
           refreshing={loading}
           renderItem={({ item }) => (
             <Link href={`/chat/${item.id}`} asChild>
-              <Card style={styles.row}>
-                <View style={styles.rowContent}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {user ? displayName(item, user.id) : ""}
-                  </Text>
-                  <Text style={styles.preview} numberOfLines={1}>
-                    {item.lastMessage?.body ?? "No messages yet"}
-                  </Text>
-                </View>
-                {item.unreadCount > 0 && (
-                  <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadLabel}>{item.unreadCount}</Text>
+              <Pressable>
+                <Card style={styles.row}>
+                  <View style={styles.rowContent}>
+                    <Text style={styles.name} numberOfLines={1}>
+                      {user ? displayName(item, user.id) : ""}
+                    </Text>
+                    <Text style={styles.preview} numberOfLines={1}>
+                      {item.lastMessage?.body ?? "No messages yet"}
+                    </Text>
                   </View>
-                )}
-              </Card>
+                  {item.unreadCount > 0 && (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadLabel}>{item.unreadCount}</Text>
+                    </View>
+                  )}
+                </Card>
+              </Pressable>
             </Link>
           )}
         />
@@ -100,13 +104,15 @@ export default function ChatListScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  list: { padding: 12, gap: 8 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8 },
-  rowContent: { flex: 1, gap: 2 },
-  name: { fontSize: 15, fontWeight: "600", color: colors.ink },
-  preview: { fontSize: 13, color: colors.inkMuted },
-  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
-  unreadLabel: { color: colors.white, fontSize: 11, fontWeight: "700" },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    list: { padding: 12, gap: 8 },
+    row: { flexDirection: "row", alignItems: "center", gap: 8 },
+    rowContent: { flex: 1, gap: 2 },
+    name: { fontSize: 15, fontWeight: "600", color: colors.ink },
+    preview: { fontSize: 13, color: colors.inkMuted },
+    unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 5 },
+    unreadLabel: { color: colors.white, fontSize: 11, fontWeight: "700" },
+  });
+}

@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import type { ConversationSummary, ConversationType, UserSummary } from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { UserSearchPicker } from "@/components/UserSearchPicker";
 import { MultiUserSearchPicker } from "@/components/MultiUserSearchPicker";
 import { TextField } from "@/components/TextField";
 import { Button } from "@/components/Button";
 
 export default function NewConversationScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [type, setType] = useState<ConversationType>("DIRECT");
   const [name, setName] = useState("");
   const [members, setMembers] = useState<UserSummary[]>([]);
@@ -47,7 +49,7 @@ export default function NewConversationScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.flex} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.toggleRow}>
         {(["DIRECT", "GROUP"] as const).map((option) => (
           <Text
@@ -73,24 +75,27 @@ export default function NewConversationScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  content: { flexGrow: 1, padding: 16, backgroundColor: colors.surfaceSubtle, gap: 16 },
-  toggleRow: {
-    flexDirection: "row",
-    alignSelf: "flex-start",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 2,
-  },
-  toggleOption: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    fontSize: 13,
-    fontWeight: "600",
-    color: colors.inkMuted,
-    borderRadius: 8,
-  },
-  toggleOptionActive: { backgroundColor: colors.accentSoft, color: colors.accentStrong },
-  groupForm: { gap: 16 },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { flexGrow: 1, padding: 16, gap: 16 },
+    toggleRow: {
+      flexDirection: "row",
+      alignSelf: "flex-start",
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 2,
+    },
+    toggleOption: {
+      paddingVertical: 8,
+      paddingHorizontal: 14,
+      fontSize: 13,
+      fontWeight: "600",
+      color: colors.inkMuted,
+      borderRadius: 8,
+    },
+    toggleOptionActive: { backgroundColor: colors.accentSoft, color: colors.accentStrong },
+    groupForm: { gap: 16 },
+  });
+}

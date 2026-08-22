@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { EVENT_RSVP_STATUS_LABELS, type EventDetail, type EventRsvpStatus } from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { LoadingState, ErrorState } from "@/components/ScreenState";
 import { Card } from "@/components/Card";
@@ -22,6 +22,8 @@ function formatDateTime(iso: string, isAllDay: boolean): string {
 }
 
 export default function EventDetailScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const event = useApiQuery<EventDetail>(`/events/${id}`);
@@ -47,7 +49,7 @@ export default function EventDetailScreen() {
   const mine = data.participants.find((p) => p.id === user?.id);
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
       <Card style={styles.gap}>
         <Text style={styles.title}>{data.title}</Text>
         {data.description && <Text style={styles.description}>{data.description}</Text>}
@@ -102,15 +104,18 @@ export default function EventDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, backgroundColor: colors.surfaceSubtle },
-  gap: { gap: 10 },
-  title: { fontSize: 18, fontWeight: "700", color: colors.ink },
-  description: { fontSize: 14, color: colors.inkMuted, lineHeight: 20 },
-  metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  meta: { fontSize: 13, color: colors.inkMuted, flexShrink: 1 },
-  rsvpRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.inkMuted, textTransform: "uppercase" },
-  participantRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
-  participantName: { fontSize: 14, color: colors.ink },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { padding: 16, gap: 12 },
+    gap: { gap: 10 },
+    title: { fontSize: 18, fontWeight: "700", color: colors.ink },
+    description: { fontSize: 14, color: colors.inkMuted, lineHeight: 20 },
+    metaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    meta: { fontSize: 13, color: colors.inkMuted, flexShrink: 1 },
+    rsvpRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+    sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.inkMuted, textTransform: "uppercase" },
+    participantRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
+    participantName: { fontSize: 14, color: colors.ink },
+  });
+}

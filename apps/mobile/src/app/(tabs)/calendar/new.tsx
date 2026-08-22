@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
 import { router } from "expo-router";
 import type { EventDetail } from "@arutech/shared-types";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { DateTimeField } from "@/components/DateTimeField";
 
 export default function NewEventScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [startAt, setStartAt] = useState<Date | null>(null);
@@ -56,8 +58,10 @@ export default function NewEventScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  content: { padding: 16, gap: 16 },
-  error: { color: colors.danger, fontSize: 13 },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { padding: 16, gap: 16 },
+    error: { color: colors.danger, fontSize: 13 },
+  });
+}

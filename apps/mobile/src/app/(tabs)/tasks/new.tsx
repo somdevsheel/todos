@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { TASK_PRIORITIES, TASK_PRIORITY_LABELS, type TaskDetail, type TaskPriority } from "@arutech/shared-types";
 import { apiFetch, ApiClientError } from "@/lib/api-client";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { Button } from "@/components/Button";
 import { TextField } from "@/components/TextField";
 import { DateTimeField } from "@/components/DateTimeField";
 
 export default function NewTaskScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
@@ -70,16 +72,18 @@ export default function NewTaskScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  content: { padding: 16, gap: 16 },
-  multiline: { minHeight: 80, textAlignVertical: "top", paddingTop: 10 },
-  field: { gap: 6 },
-  label: { fontSize: 13, fontWeight: "600", color: colors.ink },
-  priorityRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  priorityChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  priorityChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
-  priorityLabel: { fontSize: 13, color: colors.inkMuted },
-  priorityLabelActive: { color: colors.accentStrong, fontWeight: "600" },
-  error: { color: colors.danger, fontSize: 13 },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { padding: 16, gap: 16 },
+    multiline: { minHeight: 80, textAlignVertical: "top", paddingTop: 10 },
+    field: { gap: 6 },
+    label: { fontSize: 13, fontWeight: "600", color: colors.ink },
+    priorityRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    priorityChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+    priorityChipActive: { backgroundColor: colors.accentSoft, borderColor: colors.accent },
+    priorityLabel: { fontSize: 13, color: colors.inkMuted },
+    priorityLabelActive: { color: colors.accentStrong, fontWeight: "600" },
+    error: { color: colors.danger, fontSize: 13 },
+  });
+}

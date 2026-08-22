@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import {
@@ -11,7 +11,7 @@ import {
   type UserSummary,
 } from "@arutech/shared-types";
 import { apiFetch } from "@/lib/api-client";
-import { colors } from "@/lib/theme";
+import { useThemeColors } from "@/lib/theme";
 import { useApiQuery } from "@/lib/use-api";
 import { LoadingState, ErrorState } from "@/components/ScreenState";
 import { Card } from "@/components/Card";
@@ -24,6 +24,8 @@ function formatDate(iso: string): string {
 }
 
 export default function TaskDetailScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { id } = useLocalSearchParams<{ id: string }>();
   const task = useApiQuery<TaskDetail>(`/tasks/${id}`);
   const comments = useApiQuery<PaginatedResult<TaskCommentSummary>>(`/tasks/${id}/comments?pageSize=50`);
@@ -151,30 +153,32 @@ export default function TaskDetailScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
-  content: { padding: 16, gap: 12 },
-  gap: { gap: 10 },
-  title: { fontSize: 18, fontWeight: "700", color: colors.ink },
-  description: { fontSize: 14, color: colors.inkMuted, lineHeight: 20 },
-  meta: { fontSize: 12, color: colors.inkMuted },
-  statusRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
-  sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.inkMuted, textTransform: "uppercase" },
-  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  subtaskRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  subtaskTitle: { flex: 1, fontSize: 14, color: colors.ink, marginRight: 8 },
-  commentRow: { gap: 2, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
-  commentAuthor: { fontSize: 12, fontWeight: "600", color: colors.ink },
-  commentBody: { fontSize: 13, color: colors.ink },
-  composer: { gap: 8, marginTop: 4 },
-  commentInput: {
-    minHeight: 60,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 14,
-    color: colors.ink,
-    textAlignVertical: "top",
-  },
-});
+function createStyles(colors: ReturnType<typeof useThemeColors>) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.surfaceSubtle },
+    content: { padding: 16, gap: 12 },
+    gap: { gap: 10 },
+    title: { fontSize: 18, fontWeight: "700", color: colors.ink },
+    description: { fontSize: 14, color: colors.inkMuted, lineHeight: 20 },
+    meta: { fontSize: 12, color: colors.inkMuted },
+    statusRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+    sectionTitle: { fontSize: 13, fontWeight: "700", color: colors.inkMuted, textTransform: "uppercase" },
+    chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+    subtaskRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
+    subtaskTitle: { flex: 1, fontSize: 14, color: colors.ink, marginRight: 8 },
+    commentRow: { gap: 2, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 },
+    commentAuthor: { fontSize: 12, fontWeight: "600", color: colors.ink },
+    commentBody: { fontSize: 13, color: colors.ink },
+    composer: { gap: 8, marginTop: 4 },
+    commentInput: {
+      minHeight: 60,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 10,
+      padding: 10,
+      fontSize: 14,
+      color: colors.ink,
+      textAlignVertical: "top",
+    },
+  });
+}
